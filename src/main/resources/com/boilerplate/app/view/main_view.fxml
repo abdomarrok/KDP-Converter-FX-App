@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.web.WebView?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.boilerplate.app.controller.MainController"
+            prefHeight="700.0" prefWidth="1000.0" stylesheets="/css/styles.css">
+  <top>
+    <HBox style="-fx-padding: 15; -fx-background-color: white; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);" spacing="20" alignment="CENTER_LEFT">
+      <Label text="StoryForge" styleClass="title-label"/>
+      <TextField fx:id="urlField" promptText="Paste Gemini URL here..." HBox.hgrow="ALWAYS"/>
+      <Button text="Load" onAction="#handleLoadUrl"/>
+    </HBox>
+  </top>
+
+  <center>
+    <SplitPane dividerPositions="0.4">
+      <items>
+        <!-- Left: Preview Dashboard -->
+        <VBox spacing="10" style="-fx-padding: 15;">
+          <HBox alignment="CENTER_LEFT" spacing="10">
+            <Label text="Story Preview" style="-fx-font-weight: bold; -fx-font-size: 16;"/>
+            <Label fx:id="statusLabel" text="Ready" style="-fx-text-fill: gray;"/>
+          </HBox>
+          <Separator/>
+          <!-- ListView with Empty State -->
+          <StackPane VBox.vgrow="ALWAYS">
+            <ListView fx:id="sceneListView"/>
+            <!-- Empty State Placeholder -->
+            <VBox fx:id="emptyState" alignment="CENTER" spacing="10" style="-fx-padding: 40;" visible="true">
+              <Label text="📖 No scenes extracted yet" style="-fx-font-size: 18; -fx-text-fill: gray;"/>
+              <Label text="Load a Gemini story URL and click 'Extract Scenes'" style="-fx-text-fill: gray;"/>
+            </VBox>
+          </StackPane>
+          <HBox spacing="10" alignment="CENTER_RIGHT">
+            <Button text="Extract Scenes" onAction="#handleExtract" style="-fx-background-color: #10b981;"/>
+            <!-- Emerald 500 -->
+            <Button text="Generate PDF" onAction="#handleGeneratePdf"/>
+            <Button text="Preview PDF" onAction="#handlePreviewPdf" style="-fx-background-color: #3b82f6;"/>
+          </HBox>
+        </VBox>
+        <!-- Right: WebView Browser -->
+        <StackPane>
+          <WebView fx:id="webView"/>
+        </StackPane>
+      </items>
+    </SplitPane>
+  </center>
+</BorderPane>

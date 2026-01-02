@@ -1,0 +1,9 @@
+com\boilerplate\app\model\Story.class
+com\boilerplate\app\service\WebViewParser.class
+com\boilerplate\app\service\JasperPdfService.class
+com\boilerplate\app\controller\MainController.class
+com\boilerplate\app\model\Scene.class
+com\boilerplate\app\App.class
+module-info.class
+com\boilerplate\app\service\WebViewParser$JavaBridge.class
+com\boilerplate\app\controller\MainController$1.class

@@ -1,0 +1,776 @@
+<!-- Created with Jaspersoft Studio version 7.0.0.final using JasperReports Library version 7.0.0-b478feaa9aab4375eba71de77b4ca138ad2f62aa  -->
+<jasperReport name="Bon_Commande_Report" language="java" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" whenResourceMissingType="Empty" uuid="1c2f6d99-5f39-47a5-9c3a-b2b4d6c4cb55" summaryWithPageHeaderAndFooter="true">
+	<property name="net.sf.jasperreports.awt.ignore.missing.font" value="true"/>
+	<property name="net.sf.jasperreports.default.pdf.encoding" value="Identity-H"/>
+	<property name="net.sf.jasperreports.default.pdf.font.name" value="Andalus"/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="invlouiza"/>
+	<property name="net.sf.jasperreports.print.create.bookmarks" value="false"/>
+	<parameter name="bon_commande_id" class="java.lang.Integer"/>
+	<parameter name="entreprise_name" class="java.lang.String"/>
+	<parameter name="ministry_name" class="java.lang.String"/>
+	<parameter name="daira_name" class="java.lang.String"/>
+	<parameter name="logo" class="java.lang.Object"/>
+	<parameter name="img_bar_code" class="java.awt.image.BufferedImage"/>
+	<parameter name="total_ht" class="java.lang.Double"/>
+	<parameter name="total_tva" class="java.lang.Double"/>
+	<parameter name="total_tva9" class="java.lang.Double"/>
+	<parameter name="total_tva19" class="java.lang.Double"/>
+	<parameter name="total_ttc" class="java.lang.Double"/>
+	<parameter name="tafqeet_text" class="java.lang.String"/>
+	<query language="SQL"><![CDATA[
+   SELECT
+    bc.id AS bon_commande_id,
+    bc.numero AS bon_commande_numero,
+    DATE(bc.date) AS bon_commande_date,
+    bc.objet AS bon_commande_objet,
+    bc.source_financement AS bon_commande_source_financement,
+    bc.delai_execution AS bon_commande_delai_execution,
+    bc.lieu_signature AS bon_commande_lieu_signature,
+    bc.type_commande AS bon_commande_type,
+    bc.command_exspense_type AS command_exspense_type,
+    bc.status AS bon_commande_status,
+    f.id AS fournisseur_id,
+    f.name AS fournisseur_name,
+    f.RC AS fournisseur_RC,
+    f.NIF AS fournisseur_NIF,
+    f.AI AS fournisseur_AI,
+    f.NIS AS fournisseur_NIS,
+    f.TEL AS fournisseur_TEL,
+    f.FAX AS fournisseur_FAX,
+    f.ADDRESS AS fournisseur_ADDRESS,
+    f.EMAIL AS fournisseur_EMAIL,
+    f.RIB AS fournisseur_RIB,
+    a.id AS article_id,
+    a.name AS article_name,
+    a.unite AS article_unite,
+    ci.quantite AS quantity,
+    ci.prix_unitaire AS unit_price,
+    e.name AS enterprise_name,
+    e.address AS enterprise_address,
+    e.phone AS enterprise_phone,
+    e.fax AS enterprise_fax,
+    e.email AS enterprise_email,
+    e.logo AS enterprise_logo,
+    e.ministry_name AS ministry_name,
+    e.daira_name AS daira_name,
+    e.wilaya_name AS wilaya_name
+FROM bon_commande bc
+LEFT JOIN fournisseur f ON bc.id_fournisseur = f.id
+LEFT JOIN commande_item ci ON bc.id = ci.id_bc
+LEFT JOIN article a ON ci.id_article = a.id
+LEFT JOIN enterprise_info e ON e.id = 1
+WHERE bc.id = $P{bon_commande_id};
+]]></query>
+	<field name="bon_commande_id" class="java.lang.Integer"/>
+	<field name="bon_commande_numero" class="java.lang.String"/>
+	<field name="bon_commande_date" class="java.lang.String"/>
+	<field name="bon_commande_objet" class="java.lang.String"/>
+	<field name="bon_commande_type" class="java.lang.String"/>
+	<field name="command_exspense_type" class="java.lang.String"/>
+	<field name="bon_commande_source_financement" class="java.lang.String"/>
+	<field name="bon_commande_delai_execution" class="java.lang.String"/>
+	<field name="bon_commande_lieu_signature" class="java.lang.String"/>
+	<field name="fournisseur_id" class="java.lang.Integer"/>
+	<field name="quantity" class="java.lang.Integer"/>
+	<field name="unit_price" class="java.lang.Float"/>
+	<field name="fournisseur_name" class="java.lang.String"/>
+	<field name="fournisseur_RC" class="java.lang.String"/>
+	<field name="fournisseur_NIF" class="java.lang.String"/>
+	<field name="fournisseur_AI" class="java.lang.String"/>
+	<field name="fournisseur_NIS" class="java.lang.String"/>
+	<field name="fournisseur_TEL" class="java.lang.String"/>
+	<field name="fournisseur_FAX" class="java.lang.String"/>
+	<field name="fournisseur_ADDRESS" class="java.lang.String"/>
+	<field name="fournisseur_RIB" class="java.lang.String"/>
+	<field name="article_name" class="java.lang.String"/>
+	<field name="article_unite" class="java.lang.String"/>
+	<field name="enterprise_name" class="java.lang.String"/>
+	<field name="enterprise_address" class="java.lang.String"/>
+	<field name="enterprise_phone" class="java.lang.String"/>
+	<field name="enterprise_fax" class="java.lang.String"/>
+	<field name="ministry_name" class="java.lang.String"/>
+	<group name="TotalGroup">
+		<expression><![CDATA[1]]></expression>
+		<groupFooter>
+			<band height="242" splitType="Prevent">
+				<element kind="textField" uuid="79ad4fc4-3447-4709-9d16-5eb1c1a8d9d1" x="25" y="0" width="324" height="15" pattern="#,##0.00" hTextAlign="Center" vTextAlign="Middle">
+					<paragraph rightIndent="5"/>
+					<expression><![CDATA[$P{total_ht}]]></expression>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					<box>
+						<pen lineWidth="1.0"/>
+					</box>
+				</element>
+				<element kind="staticText" uuid="3e3faeb4-e521-4a2a-86b3-514bb0a51006" mode="Opaque" x="349" y="0" width="206" height="15" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="8.0" bold="true" hTextAlign="Right" vTextAlign="Middle">
+					<paragraph rightIndent="5" spacingBefore="0"/>
+					<text><![CDATA[المبلغ بدون رسوم (HT)]]></text>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					<box>
+						<pen lineWidth="1.0"/>
+					</box>
+				</element>
+				<element kind="textField" uuid="979603df-2dc9-4b17-a050-122d68f594bc" x="25" y="15" width="324" height="15" pattern="#,##0.00" hTextAlign="Center" vTextAlign="Middle">
+					<paragraph rightIndent="5"/>
+					<expression><![CDATA[$P{total_tva9}]]></expression>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					<box>
+						<pen lineWidth="1.0"/>
+					</box>
+				</element>
+				<element kind="staticText" uuid="2e729bf4-6e97-435f-95aa-cf532dc7b8ac" mode="Opaque" x="349" y="15" width="206" height="15" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="8.0" bold="true" hTextAlign="Right" vTextAlign="Middle">
+					<paragraph rightIndent="5" spacingBefore="0"/>
+					<text><![CDATA[مبلغ الرسم على القيمة المضافة %9]]></text>
+					<property name="com.jaspersoft.studio.unit.spacingBefore" value="px"/>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					<box>
+						<pen lineWidth="1.0"/>
+					</box>
+				</element>
+				<element kind="textField" uuid="42a17694-707a-474e-a3e5-5032702f66ec" x="25" y="30" width="324" height="15" pattern="#,##0.00" hTextAlign="Center" vTextAlign="Middle">
+					<paragraph rightIndent="5"/>
+					<expression><![CDATA[$P{total_tva19} == null ? 0 : $P{total_tva19}]]></expression>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					<box>
+						<pen lineWidth="1.0"/>
+					</box>
+				</element>
+				<element kind="staticText" uuid="79abb083-38fc-40da-b08e-bfae3503059c" mode="Opaque" x="349" y="30" width="206" height="15" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="8.0" bold="true" hTextAlign="Right" vTextAlign="Middle">
+					<paragraph rightIndent="5" spacingBefore="0"/>
+					<text><![CDATA[مبلغ الرسم على القيمة المضافة %19]]></text>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					<box>
+						<pen lineWidth="1.0"/>
+					</box>
+				</element>
+				<element kind="textField" uuid="5168d520-ab24-46ba-a998-6ba4eb4984ba" x="25" y="45" width="324" height="15" pattern="#,##0.00" hTextAlign="Center" vTextAlign="Middle">
+					<paragraph rightIndent="5"/>
+					<expression><![CDATA[$P{total_tva}]]></expression>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					<box>
+						<pen lineWidth="1.0"/>
+					</box>
+				</element>
+				<element kind="staticText" uuid="30e4c975-4782-4948-b1ab-05a981104ff6" mode="Opaque" x="349" y="45" width="206" height="15" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="8.0" bold="true" hTextAlign="Right" vTextAlign="Middle">
+					<paragraph rightIndent="5" spacingBefore="0"/>
+					<text><![CDATA[مجموع الرسوم (TVA)]]></text>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					<box>
+						<pen lineWidth="1.0"/>
+					</box>
+				</element>
+				<element kind="textField" uuid="ebeb3711-4e20-42bb-81c3-1a07cc34c4a6" x="25" y="60" width="324" height="15" pattern="#,##0.00" hTextAlign="Center" vTextAlign="Middle">
+					<paragraph rightIndent="5"/>
+					<expression><![CDATA[$P{total_ttc}]]></expression>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					<box>
+						<pen lineWidth="1.0"/>
+					</box>
+				</element>
+				<element kind="staticText" uuid="850d5611-abcd-428d-8897-e80653c30f9e" mode="Opaque" x="349" y="60" width="206" height="15" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="8.0" bold="true" hTextAlign="Right" vTextAlign="Middle">
+					<paragraph rightIndent="5" spacingBefore="0"/>
+					<text><![CDATA[المبلغ الإجمالي بكل الرسوم (TTC)]]></text>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					<box>
+						<pen lineWidth="1.0"/>
+					</box>
+				</element>
+				<element kind="textField" uuid="350bbff6-50c9-4726-85c3-297805111021" x="25" y="75" width="324" height="20" fontName="Traditional Arabic" fontSize="10.0" bold="true" hTextAlign="Right" vTextAlign="Middle">
+					<paragraph rightIndent="5"/>
+					<expression><![CDATA[$P{tafqeet_text}]]></expression>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					<box>
+						<pen lineWidth="1.0"/>
+						<rightPen lineWidth="0.0"/>
+					</box>
+				</element>
+				<element kind="staticText" uuid="9b148c46-8267-410c-b759-2d90bc3b939d" mode="Opaque" x="349" y="75" width="206" height="20" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="10.0" bold="true" hTextAlign="Right" vTextAlign="Middle">
+					<paragraph rightIndent="5" spacingBefore="0"/>
+					<text><![CDATA[يوقف سند هذا الطلب على المبلغ الاجمالي (بالحروف) :]]></text>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					<box>
+						<pen lineWidth="1.0"/>
+						<leftPen lineWidth="1.0"/>
+					</box>
+				</element>
+				<element kind="staticText" uuid="c60201b4-38f2-457d-b58a-a45093216e08" x="210" y="101" width="344" height="15" fontName="Traditional Arabic" fontSize="9.0" hTextAlign="Right" vTextAlign="Middle">
+					<text><![CDATA[       يلتزم المتعامل بتنفيذ هذا الطلب طبقا للمواصفات والشروط المبينة أعلاه وضمن الآجال المحددة]]></text>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				</element>
+				<element kind="staticText" uuid="c66fbff8-8d4b-44e1-a634-09786261b5f5" x="475" y="117" width="80" height="15" fontName="Traditional Arabic" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+					<text><![CDATA[مصدر التمويل :]]></text>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				</element>
+				<element kind="textField" uuid="7b5a3b42-6298-4c78-beed-9e036f528168" x="255" y="117" width="220" height="15" fontName="Traditional Arabic" fontSize="9.0" hTextAlign="Right" vTextAlign="Middle">
+					<expression><![CDATA[$F{bon_commande_source_financement}]]></expression>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				</element>
+				<element kind="staticText" uuid="e734015f-d41d-454a-a65c-1dfe436b25df" x="438" y="133" width="116" height="15" fontName="Traditional Arabic" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+					<text><![CDATA[   تقدر مدة التسليم او التنفيذ بـ :]]></text>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				</element>
+				<element kind="textField" uuid="9e1dfce8-60d3-4763-aad3-0a82dcdc5b33" x="258" y="133" width="180" height="15" fontName="Traditional Arabic" fontSize="9.0" hTextAlign="Right" vTextAlign="Middle">
+					<expression><![CDATA[$F{bon_commande_delai_execution}]]></expression>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				</element>
+				<element kind="staticText" uuid="1fedcd4b-e775-48ae-83eb-6cf7c07b73f4" x="138" y="133" width="120" height="15" fontName="Traditional Arabic" fontSize="9.0" hTextAlign="Right" vTextAlign="Middle">
+					<text><![CDATA[ابتداءا من تاريخ امضاء هذا السند .]]></text>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				</element>
+				<element kind="staticText" uuid="b4fe5fdc-ff59-4b79-bc98-ff26b1499b14" x="162" y="172" width="78" height="26" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center">
+					<text><![CDATA[بـــــــــ .................]]></text>
+				</element>
+				<element kind="staticText" uuid="69d7fefb-11cc-43aa-9666-acfe5bc231cb" x="60" y="172" width="90" height="26" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Right">
+					<text><![CDATA[فــــي :..............]]></text>
+				</element>
+				<element kind="staticText" uuid="7a0d5713-ab19-4579-9802-c12f4392c5b0" x="405" y="174" width="150" height="21" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+					<text><![CDATA[المصلحة المتعاقدة:]]></text>
+				</element>
+				<element kind="staticText" uuid="26be5de2-045c-4592-81bf-3dc1ef6ededb" x="2" y="210" width="553" height="15" fontName="Traditional Arabic" fontSize="7.0" hTextAlign="Right" vTextAlign="Middle">
+					<text><![CDATA[ - طبقا لأحكام لا سيما المادة 20 من المرسوم الرئاسي رقم 15-247 المؤرخ في 2 ذي الحجة عام 1436 الموافق لـ 16 سبتمبر 2015 يتضمن الصفقات العمومية و تفويضات المرفق العام لا سيما المادة 20 منه]]></text>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				</element>
+				<element kind="staticText" uuid="1762bea0-3f3c-4459-a8cb-569869d109b6" x="2" y="226" width="553" height="15" fontName="Traditional Arabic" fontSize="7.0" hTextAlign="Right" vTextAlign="Middle">
+					<text><![CDATA[ - إعداد الفاتورة من طرف المتعهد يجب أن يكون مطابقا لهذا الشكل من وصل الطلب و عليه ينبغي إدراج مرجعيات وصل الطلب المذكور في هذه الفاتورة.]]></text>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				</element>
+			</band>
+		</groupFooter>
+	</group>
+	<title height="385" splitType="Stretch">
+		<element kind="rectangle" uuid="4e5dcfd8-d7ff-4556-85e1-b69b50f28d19" x="448" y="48" width="109" height="220"/>
+		<element kind="staticText" uuid="eacbff3d-bc2b-4f82-8ef8-3674e5e843f8" mode="Opaque" x="31" y="44" width="392" height="20" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[سند الطلب]]></text>
+			<box>
+				<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="b42c6c75-0152-4d85-b45e-cb5dc24d08c1" x="215" y="64" width="142" height="20" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA[$F{bon_commande_numero}]]></expression>
+			<box>
+				<bottomPen lineWidth="1.0"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="e38d8475-872a-4907-8f71-8bcb516cbac3" x="357" y="64" width="66" height="20" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[رقم : ]]></text>
+			<box>
+				<leftPen lineWidth="0.0"/>
+				<bottomPen lineWidth="1.0"/>
+				<rightPen lineWidth="1.0"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="62d2a450-48e2-45a8-9447-e24b0f02787e" x="31" y="111" width="296" height="15" fontName="Traditional Arabic" fontSize="10.0" bold="false" hTextAlign="Right">
+			<expression><![CDATA[$F{enterprise_name}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="c24a108a-2c0b-4770-b851-40342a98f7c9" x="31" y="143" width="295" height="15" fontName="Traditional Arabic" fontSize="10.0" bold="false" hTextAlign="Right">
+			<expression><![CDATA[$F{enterprise_address}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="192a5431-b660-4411-9252-05452d3a77d1" x="241" y="159" width="119" height="15" fontName="Traditional Arabic" fontSize="10.0" bold="false" hTextAlign="Right">
+			<expression><![CDATA[$F{enterprise_phone}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="ab4d7343-5b11-46b3-99c2-85d8bb289d89" x="30" y="202" width="350" height="15" fontName="Traditional Arabic" fontSize="10.0" hTextAlign="Right" vTextAlign="Middle">
+			<paragraph rightIndent="10"/>
+			<expression><![CDATA[$F{fournisseur_name}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="16d51829-d510-410e-94c6-4d7a829e05f6" x="31" y="217" width="349" height="15" fontName="Traditional Arabic" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+			<paragraph rightIndent="10"/>
+			<expression><![CDATA[$F{fournisseur_ADDRESS}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="40a927c3-3765-4f4e-a10d-2b7e19273c1c" x="30" y="233" width="329" height="15" fontName="Traditional Arabic" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA[ $F{fournisseur_FAX}  + " / " +$F{fournisseur_TEL}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="2a3f78b0-a51f-4375-8167-7a2e8e3906a4" x="237" y="248" width="105" height="15" fontName="Traditional Arabic" fontSize="8.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA[$F{fournisseur_RC}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="4c12001a-8c0c-4614-a957-658a1f73752e" x="30" y="248" width="122" height="15" fontName="Traditional Arabic" fontSize="8.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA[$F{fournisseur_NIF}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="1b988775-8b38-4e4c-836f-e221b0336a5a" x="30" y="263" width="122" height="15" fontName="Traditional Arabic" fontSize="8.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA[$F{fournisseur_NIS}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="74e89f66-180a-4299-8035-773a483e58fa" x="237" y="263" width="105" height="15" fontName="Traditional Arabic" fontSize="8.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA[$F{fournisseur_AI}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="901c9d4b-222a-4a64-92d5-926f236f0688" x="30" y="278" width="261" height="15" fontName="Traditional Arabic" fontSize="8.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<paragraph rightIndent="10"/>
+			<expression><![CDATA[$F{fournisseur_RIB}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+			<box>
+				<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="df09f2d1-930d-46d1-bec4-0375bbdbf9f7" x="31" y="64" width="114" height="20" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA[$F{bon_commande_date}]]></expression>
+			<box>
+				<leftPen lineWidth="1.0"/>
+				<bottomPen lineWidth="1.0"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="094c9237-3cf8-4976-82e5-f0a1d3b02e54" x="92" y="0" width="370" height="20" fontName="SansSerif" fontSize="15.0" bold="false" hTextAlign="Center">
+			<expression><![CDATA["الجمهــــــورية الجزائريـــــــــــــــة الديمقراطيـــــــــــــة الشعبيــــــــــة"]]></expression>
+		</element>
+		<element kind="textField" uuid="ede79a0f-06b5-44bb-93ef-b7d1be082945" x="92" y="20" width="370" height="20" fontSize="13.0" bold="true" hTextAlign="Center">
+			<expression><![CDATA["République Algérienne Démocratique et Populaire"]]></expression>
+		</element>
+		<element kind="staticText" uuid="5a2f489b-df1e-4230-a17b-0189dce42a10" mode="Opaque" x="31" y="91" width="391" height="20" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[التعريف بالمصلحة المتعاقدة]]></text>
+			<box>
+				<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="76411aad-26b3-4967-bb25-ecac4f70f179" x="327" y="111" width="95" height="15" fontName="Traditional Arabic" fontSize="10.0" bold="false" hTextAlign="Right">
+			<text><![CDATA[ التسمية :]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="e0bf137a-4f05-473c-a5be-526cbcb154cb" x="327" y="127" width="95" height="15" fontName="Traditional Arabic" fontSize="10.0" bold="false" hTextAlign="Right">
+			<text><![CDATA[  رمز المسير (الآمر بالصرف) :]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="945debe6-50e0-4b63-988a-3c1832cef447" x="327" y="143" width="95" height="15" fontName="Traditional Arabic" fontSize="10.0" bold="false" hTextAlign="Right">
+			<text><![CDATA[ العنوان :]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="93e7fcac-f3e5-4a5a-a9cd-6fa17725c2e5" x="360" y="159" width="62" height="15" fontName="Traditional Arabic" fontSize="10.0" bold="false" hTextAlign="Right">
+			<text><![CDATA[ الهاتف :]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="efa98149-bb21-423d-81bf-6e7333231991" x="145" y="64" width="70" height="20" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[تاريخ :]]></text>
+			<box>
+				<bottomPen lineWidth="1.0"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="0302ed09-8684-4ee7-b857-3ba982f74654" mode="Opaque" x="30" y="182" width="392" height="20" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[التعريف بالمتعامل الاقتصادي]]></text>
+			<box>
+				<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="f6b460ee-e980-4567-9551-d26e71fd8e67" x="380" y="217" width="42" height="15" fontName="Traditional Arabic" fontSize="10.0" bold="false" hTextAlign="Right">
+			<text><![CDATA[ العنوان :]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="0d8f76a8-9154-4663-9742-33303bee0f45" x="380" y="202" width="42" height="15" fontName="Traditional Arabic" fontSize="10.0" bold="false" hTextAlign="Right">
+			<text><![CDATA[ الاسم :]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="d504bcc9-3efc-493c-86bf-0aea7c466a96" x="359" y="233" width="63" height="15" fontName="Traditional Arabic" fontSize="10.0" bold="false" hTextAlign="Right">
+			<text><![CDATA[ الهاتف والفاكس :]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="ed730d35-d0b0-4814-bf70-9400db8fdd2b" x="342" y="248" width="80" height="15" fontName="Traditional Arabic" fontSize="8.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[رقم السجل التجاري]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="823fe951-3c88-4e61-a230-a9ed7336a701" x="152" y="248" width="85" height="15" fontName="Traditional Arabic" fontSize="8.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[رقم التعريف الجبائي]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="1388a811-b610-4789-be65-dd7f9825b534" x="152" y="263" width="85" height="15" fontName="Traditional Arabic" fontSize="8.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[رقم التعريف الاحصائي]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="3af84570-607e-4a64-8f25-bb7b47350798" x="342" y="263" width="80" height="15" fontName="Traditional Arabic" fontSize="8.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[رقم الاعتماد (N,A)]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="94b68023-a1cd-4c3b-b757-905720c7813a" x="291" y="278" width="131" height="15" fontName="Traditional Arabic" fontSize="8.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[كشف الحسابات البنكية او البريدية]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="75dae7a7-12bd-44fa-a53c-0ac248101931" x="456" y="49" width="93" height="70" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[   حيز مخصص لمصلحة الرقابة المالية]]></text>
+		</element>
+		<element kind="staticText" uuid="13078b0e-eb2f-402b-abc7-a3d084e2b434" x="453" y="179" width="98" height="80" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[هذا الحيز مخصص لمصلحة الرقابة المالية لوضع التاشيرة لافضل مراقبة ومتابعة]]></text>
+		</element>
+		<element kind="staticText" uuid="833e972a-f5c3-4af3-bbc4-798ca86c5b3e" x="460" y="130" width="90" height="20" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[بــــــــــــ: .................]]></text>
+		</element>
+		<element kind="staticText" uuid="1ac80831-edc5-42b0-96b4-56dbca01f327" x="460" y="150" width="90" height="20" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[فــــــي : ...............]]></text>
+		</element>
+		<element kind="textField" uuid="d30ea929-9b19-4edd-9e30-bb2a9ee2465c" x="31" y="127" width="295" height="15" fontName="Traditional Arabic" fontSize="10.0" bold="false" hTextAlign="Right">
+			<expression><![CDATA[$F{enterprise_name}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="b9916ff8-1f1e-4ac8-bfdb-f7080bf01408" mode="Opaque" x="25" y="301" width="529" height="20" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[خصوصيات الطلب]]></text>
+			<box>
+				<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="400c069b-beb0-49f5-ba3c-82ffbbbbbbba" x="470" y="321" width="84" height="15" fontName="Traditional Arabic" fontSize="10.0" bold="false" hTextAlign="Center">
+			<text><![CDATA[نوع الطلب :]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="textField" uuid="fa377fb5-d8ee-412e-afe0-f377be2fa369" x="443" y="337" width="108" height="42" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center">
+			<expression><![CDATA[$F{bon_commande_type}]]></expression>
+		</element>
+		<element kind="staticText" uuid="222c069b-beb0-49f5-ba3c-82ffbbbbbbba" x="129" y="321" width="103" height="15" fontName="Traditional Arabic" fontSize="10.0" bold="false" hTextAlign="Center">
+			<text><![CDATA[موضوع الطلب بالتفصيل :]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="textField" uuid="bf8b48db-beb0-49f5-ba3c-82ffbbbbbbba" x="28" y="337" width="310" height="43" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center">
+			<expression><![CDATA[$F{bon_commande_objet}]]></expression>
+		</element>
+		<element kind="staticText" uuid="b3ec478d-f9e8-4cc8-9de9-e1f5da96149f" x="180" y="159" width="61" height="15" fontName="Traditional Arabic" fontSize="10.0" bold="false" hTextAlign="Right">
+			<text><![CDATA[ الفاكس :]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="29cec704-388f-4963-8928-027f5c4e2bfc" x="31" y="159" width="149" height="15" fontName="Traditional Arabic" fontSize="10.0" hTextAlign="Right">
+			<expression><![CDATA[$F{enterprise_fax}]]></expression>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+			</box>
+		</element>
+		<element kind="line" uuid="b8316d43-489f-4a88-b1a7-6f1c43f66328" x="339" y="321" width="1" height="62">
+			<property name="com.jaspersoft.studio.unit.width" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="line" uuid="cfb04ff5-5beb-4770-995d-fdebbf69d1fd" x="554" y="321" width="1" height="62">
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="line" uuid="dfddb1aa-c66d-43a2-b0f5-05f974a54ccd" x="25" y="322" width="1" height="62">
+			<property name="com.jaspersoft.studio.unit.width" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+		</element>
+		<element kind="staticText" uuid="ac1a0c61-43d5-48f9-a041-97a4c3579d7b" x="349" y="322" width="84" height="15" fontName="Traditional Arabic" fontSize="10.0" bold="false" hTextAlign="Center">
+			<text><![CDATA[نوع النفقات :]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="textField" uuid="b52694da-9d16-4cc0-96fa-ce41e533f40b" x="340" y="337" width="103" height="42" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center">
+			<expression><![CDATA[$F{command_exspense_type}]]></expression>
+		</element>
+		<element kind="line" uuid="3dde0652-cac0-46fb-89df-14b21e10c7ff" x="444" y="321" width="1" height="62">
+			<property name="com.jaspersoft.studio.unit.width" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+		</element>
+		<element kind="image" uuid="d7896101-f029-458d-886d-26f4b722100e" x="475" y="-1" width="50" height="50">
+			<expression><![CDATA[$P{logo}]]></expression>
+		</element>
+		<property name="com.jaspersoft.studio.unit.height" value="px"/>
+	</title>
+	<columnHeader height="21" splitType="Stretch">
+		<printWhenExpression><![CDATA[$V{PAGE_NUMBER} == 1]]></printWhenExpression>
+		<element kind="staticText" uuid="00000000-0000-0000-0000-000000000000" mode="Opaque" x="525" y="1" width="30" height="20" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[الرقم]]></text>
+			<box>
+				<pen lineWidth="1.0" lineStyle="Solid"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="cb5f9d28-16d7-4378-b46d-90b21b15fa16" mode="Opaque" x="286" y="1" width="239" height="20" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[العنصر]]></text>
+			<box>
+				<pen lineWidth="1.0" lineStyle="Solid"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="0433c3bc-7100-498c-8253-d12669b34bfe" mode="Opaque" x="220" y="1" width="66" height="20" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[وحدة القياس]]></text>
+			<box>
+				<pen lineWidth="1.0" lineStyle="Solid"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="0433c3bc-7100-498c-8253-d12669b34bfe" mode="Opaque" x="166" y="1" width="53" height="20" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[الكمية]]></text>
+			<box>
+				<pen lineWidth="1.0" lineStyle="Solid"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="aca4c69d-d155-4fca-ad15-6bb4df2a8056" mode="Opaque" x="103" y="1" width="63" height="20" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[سعر الوحدة]]></text>
+			<box>
+				<pen lineWidth="1.0" lineStyle="Solid"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="97eb40b6-3ba5-4658-98b1-6d373ac49d83" mode="Opaque" x="25" y="1" width="78" height="20" backcolor="#D1CDCD" fontName="Traditional Arabic" fontSize="12.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[المبلغ DA]]></text>
+			<box>
+				<pen lineWidth="1.0" lineStyle="Solid"/>
+			</box>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="15" splitType="Stretch">
+			<element kind="textField" uuid="d12cc438-f59f-4da7-93cc-8f53d9f0faee" x="25" y="0" width="77" height="15" pattern="#,##0.00" hTextAlign="Center" vTextAlign="Top">
+				<expression><![CDATA[$F{quantity} != null && $F{unit_price} != null ?$F{quantity} * $F{unit_price} : 0.0f]]></expression>
+				<box>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+			</element>
+			<element kind="textField" uuid="d92e2145-0e72-424d-ace6-cc94ad9b6c74" x="102" y="0" width="64" height="15" pattern="#,##0.00" hTextAlign="Center" vTextAlign="Top">
+				<expression><![CDATA[$F{unit_price}]]></expression>
+				<box>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+			</element>
+			<element kind="textField" uuid="1d5f81c3-0ee2-41b2-a968-fcf48f5969cd" x="166" y="0" width="54" height="15" hTextAlign="Center" vTextAlign="Top">
+				<expression><![CDATA[$F{quantity}]]></expression>
+				<box>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+			</element>
+			<element kind="textField" uuid="348548eb-34b8-4f40-90a5-ab4040d60ac7" x="220" y="0" width="66" height="15" pattern="#,##0.00" hTextAlign="Center" vTextAlign="Top">
+				<expression><![CDATA[$F{article_unite}]]></expression>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				<box>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+			</element>
+			<element kind="textField" uuid="00f12245-f166-47e9-bffa-eb56cc79b2cb" x="286" y="0" width="239" height="15" hTextAlign="Center" vTextAlign="Top">
+				<expression><![CDATA[$F{article_name}]]></expression>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				<box>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+			</element>
+			<element kind="textField" uuid="be7107db-9d5a-4d8c-a872-5b53bc4c5cad" x="525" y="0" width="30" height="15" fontSize="10.0" hTextAlign="Center" vTextAlign="Top">
+				<expression><![CDATA[$V{REPORT_COUNT}]]></expression>
+				<property name="com.jaspersoft.studio.unit.width" value="px"/>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				<box>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+			</element>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<property name="com.jaspersoft.studio.layout" value="com.jaspersoft.studio.editor.layout.spreadsheet.SpreadsheetLayout"/>
+		</band>
+	</detail>
+	<pageFooter height="20" splitType="Stretch">
+		<element kind="textField" uuid="e0e421ca-3c4c-4d68-948e-e30ff98be1e6" x="0" y="0" width="50" height="20" fontSize="8.0" hTextAlign="Right">
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="textField" uuid="d933316e-3e65-40eb-94fa-87f28cbc4dad" x="50" y="0" width="52" height="20" fontSize="8.0" evaluationTime="Report" hTextAlign="Left">
+			<expression><![CDATA["/" + $V{PAGE_NUMBER}]]></expression>
+		</element>
+		<element kind="image" uuid="cabc148c-1070-405a-b627-4e9ea359c37a" x="489" y="0" width="66" height="20">
+			<expression><![CDATA[$P{img_bar_code}]]></expression>
+			<property name="com.jaspersoft.studio.unit.width" value="px"/>
+		</element>
+		<property name="com.jaspersoft.studio.unit.height" value="px"/>
+	</pageFooter>
+	<lastPageFooter height="20" splitType="Stretch">
+		<element kind="textField" uuid="fe46958b-a9c0-4fbf-90d6-bebdfe969b5f" x="0" y="0" width="50" height="20" fontSize="8.0" hTextAlign="Right">
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="textField" uuid="90082806-2969-4261-9d15-d398afca29c0" x="50" y="0" width="52" height="20" fontSize="8.0" evaluationTime="Report" hTextAlign="Left">
+			<expression><![CDATA["/" + $V{PAGE_NUMBER}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="image" uuid="d0bcb599-ad85-4d65-837a-362998afeb3b" x="489" y="0" width="66" height="20">
+			<expression><![CDATA[$P{img_bar_code}]]></expression>
+			<property name="com.jaspersoft.studio.unit.width" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<property name="com.jaspersoft.studio.unit.height" value="px"/>
+	</lastPageFooter>
+</jasperReport>

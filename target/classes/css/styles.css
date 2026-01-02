@@ -1,0 +1,57 @@
+/* Goal App "Indigo" Theme */
+.root {
+    -color-primary: #4f46e5; /* Indigo 600 */
+    -color-primary-fg: #ffffff;
+    -color-bg-default: #f9fafb; /* Gray 50 */
+    -color-bg-subtle: #f3f4f6; /* Gray 100 */
+    -fx-base: -color-bg-default;
+    -fx-background-color: -color-bg-default;
+}
+
+.title-label {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -color-primary;
+    -fx-font-family: "Segoe UI", sans-serif;
+}
+
+/* Button Styling matching Tailwind buttons */
+.button {
+    -fx-background-color: -color-primary;
+    -fx-text-fill: -color-primary-fg;
+    -fx-font-weight: bold;
+    -fx-padding: 8 16;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+}
+
+.button:hover {
+    -fx-background-color: #4338ca; /* Indigo 700 */
+}
+
+.button:pressed {
+    -fx-background-color: #3730a3; /* Indigo 800 */
+}
+
+.text-field {
+    -fx-background-radius: 6;
+    -fx-padding: 8;
+    -fx-border-color: #d1d5db; /* Gray 300 */
+    -fx-border-radius: 6;
+}
+
+.text-field:focused {
+    -fx-border-color: -color-primary;
+    -fx-border-width: 2;
+}
+
+.separator .line {
+    -fx-border-color: #e5e7eb; /* Gray 200 */
+    -fx-border-width: 1;
+}
+
+.list-view {
+    -fx-background-color: transparent;
+    -fx-border-color: #e5e7eb;
+    -fx-border-radius: 6;
+}

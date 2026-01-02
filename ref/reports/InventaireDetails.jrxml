@@ -1,0 +1,113 @@
+<!-- Created with Jaspersoft Studio version 7.0.0.final using JasperReports Library version 7.0.0-b478feaa9aab4375eba71de77b4ca138ad2f62aa  -->
+<jasperReport name="InventaireDetails" language="java" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="1182687e-8368-44a6-aeea-a309fe2c9ced">
+	<property name="net.sf.jasperreports.awt.ignore.missing.font" value="true"/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="invlouiza"/>
+	<parameter name="inventaireItemId" class="java.lang.Integer"/>
+	<parameter name="img_bar_code" class="java.lang.Object"/>
+	<query language="SQL"><![CDATA[
+SELECT
+    ii.id,
+    ii.id_article,
+    a.name AS article_name,
+    ii.id_localisation,
+    l.loc_name AS localisation_name,
+    s.name AS service_name,
+    ii.user_id,
+    u.username AS user_name,  -- Assuming the user table has a column named username
+    ii.time,
+    ii.num_inventaire,
+    ii.status,
+    ii.id_employer,
+    CONCAT(e.firstname,' ',e.lastname) AS employer_name  -- Assuming the employer table has a column named name
+FROM
+    inventaire_item ii
+JOIN
+    article a ON ii.id_article = a.id
+JOIN
+    localisation l ON ii.id_localisation = l.id
+LEFT JOIN
+    service s ON l.id_service = s.id
+LEFT JOIN
+    user u ON ii.user_id = u.id  -- Join with the user table to get user_name
+LEFT JOIN
+    employeur e ON ii.id_employer = e.id  -- Join with the employer table to get employer_name
+WHERE
+    ii.id = $P{inventaireItemId}
+
+    ]]></query>
+	<field name="id" class="java.lang.Integer"/>
+	<field name="id_article" class="java.lang.Integer"/>
+	<field name="article_name" class="java.lang.String"/>
+	<field name="id_localisation" class="java.lang.Integer"/>
+	<field name="localisation_name" class="java.lang.String"/>
+	<field name="service_name" class="java.lang.String"/>
+	<field name="user_id" class="java.lang.Integer"/>
+	<field name="time" class="java.sql.Timestamp"/>
+	<field name="num_inventaire" class="java.lang.String"/>
+	<field name="status" class="java.lang.String"/>
+	<field name="id_employer" class="java.lang.Integer"/>
+	<field name="user_name" class="java.lang.String"/>
+	<field name="employer_name" class="java.lang.String"/>
+	<title height="59">
+		<element kind="staticText" uuid="eedb9fca-af2a-4006-9694-4828a84020ab" x="200" y="4" width="160" height="50" fontName="Andalus" fontSize="27.0" bold="false" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[تفاصيل الجرد]]></text>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+	</title>
+	<pageHeader height="32">
+		<element kind="staticText" uuid="8c9d7699-d667-4574-bbcb-6c52db5f37fc" x="110" y="5" width="70" height="20" fontName="Andalus" fontSize="12.0" hTextAlign="Right">
+			<text><![CDATA[التاريخ]]></text>
+		</element>
+		<element kind="textField" uuid="ef123456-ef82-4012-b63f-4a7439dc8c63" x="0" y="5" width="100" height="20" hTextAlign="Right" vTextAlign="Middle">
+			<expression><![CDATA[$F{time}]]></expression>
+		</element>
+	</pageHeader>
+	<detail>
+		<band height="290">
+			<element kind="textField" uuid="b0208a1a-e13e-4aa2-89d3-38d64d88c75f" x="80" y="60" width="350" height="20" hTextAlign="Right" vTextAlign="Middle">
+				<expression><![CDATA[$F{article_name}]]></expression>
+			</element>
+			<element kind="textField" uuid="dc5b9245-ef82-4012-b63f-4a7439dc8c61" x="275" y="30" width="155" height="20" hTextAlign="Right" vTextAlign="Middle">
+				<expression><![CDATA[$F{localisation_name}]]></expression>
+			</element>
+			<element kind="textField" uuid="ef123456-ef82-4012-b63f-4a7439dc8c62" x="330" y="120" width="100" height="20" hTextAlign="Right" vTextAlign="Middle">
+				<expression><![CDATA[$F{service_name}]]></expression>
+			</element>
+			<element kind="textField" uuid="ef123456-ef82-4012-b63f-4a7439dc8c64" x="305" y="0" width="125" height="20" hTextAlign="Right" vTextAlign="Middle">
+				<expression><![CDATA[$F{num_inventaire}]]></expression>
+			</element>
+			<element kind="staticText" uuid="55d253ba-0f04-48d9-b7a2-729b65d82d7c" x="440" y="0" width="100" height="20" fontName="Andalus" fontSize="12.0" bold="true" hTextAlign="Right">
+				<text><![CDATA[رقم الجرد :]]></text>
+			</element>
+			<element kind="staticText" uuid="a043d1c9-fd64-4b97-9764-538b205d3015" x="437" y="90" width="103" height="20" fontName="Andalus" fontSize="12.0" bold="true" hTextAlign="Right">
+				<text><![CDATA[الموظف المعني بالجرد :]]></text>
+			</element>
+			<element kind="staticText" uuid="5477979a-add1-4bbe-b24d-bcdcdb134ce5" x="437" y="60" width="103" height="20" fontName="Andalus" fontSize="12.0" bold="true" hTextAlign="Right">
+				<text><![CDATA[العنصر :]]></text>
+			</element>
+			<element kind="staticText" uuid="c0ade0c1-77e8-44cd-b9f8-2f4dffb84f05" x="487" y="30" width="53" height="20" fontName="Andalus" fontSize="12.0" bold="true" hTextAlign="Right">
+				<text><![CDATA[المكان :]]></text>
+			</element>
+			<element kind="staticText" uuid="ef123456-ef82-4012-b63f-4a7439dc8c62" x="437" y="120" width="103" height="20" fontName="Andalus" fontSize="12.0" bold="true" hTextAlign="Right">
+				<text><![CDATA[المصلحة :]]></text>
+			</element>
+			<element kind="textField" uuid="ef123456-ef82-4012-b63f-4a7439dc8c66" x="310" y="90" width="120" height="20" hTextAlign="Right" vTextAlign="Middle">
+				<expression><![CDATA[$F{employer_name}]]></expression>
+			</element>
+			<element kind="staticText" uuid="fb88c99a-55b9-4caf-815a-9d858165cc7e" x="480" y="180" width="60" height="20" fontName="Andalus" fontSize="12.0" bold="true" hTextAlign="Right">
+				<text><![CDATA[الباركود :]]></text>
+			</element>
+			<element kind="image" uuid="6da7208b-02e5-4e8a-acf4-f81691406417" x="270" y="170" width="190" height="40" hImageAlign="Center">
+				<expression><![CDATA[$P{img_bar_code}]]></expression>
+				<property name="com.jaspersoft.studio.unit.width" value="px"/>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			</element>
+			<element kind="textField" uuid="a7512e57-842e-4b5b-ad72-9fa255b68191" x="310" y="210" width="120" height="20" hTextAlign="Center">
+				<expression><![CDATA[$F{num_inventaire}]]></expression>
+			</element>
+		</band>
+	</detail>
+	<summary height="151" splitType="Stretch"/>
+</jasperReport>
