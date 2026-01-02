@@ -23,8 +23,6 @@ public class MainController {
     private WebView webView;
     @FXML
     private Label statusLabel;
-    // @FXML
-    // private ProgressBar progressBar;
     @FXML
     private VBox emptyState;
     @FXML
@@ -39,41 +37,7 @@ public class MainController {
         System.out.println("MainController: Initializing");
         statusLabel.setText("Ready to forge stories.");
 
-        // Custom Cell Factory for Preview List
-        sceneListView.setCellFactory(param -> new ListCell<>() {
-            private final ImageView imageView = new ImageView();
-            private final Label textLabel = new Label();
-            private final VBox vbox = new VBox(5, imageView, textLabel);
-
-            {
-                imageView.setFitHeight(100);
-                imageView.setPreserveRatio(true);
-                textLabel.setWrapText(true);
-                textLabel.setMaxWidth(300);
-            }
-
-            @Override
-            protected void updateItem(Scene item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setGraphic(null);
-                } else {
-                    textLabel.setText(item.getText());
-                    if (item.getImageUrl() != null && !item.getImageUrl().isEmpty()) {
-                        try {
-                            // Background loading with error handling
-                            imageView.setImage(new Image(item.getImageUrl(), 200, 0, true, true, true));
-                        } catch (Exception e) {
-                            System.err.println("Failed to load image: " + item.getImageUrl());
-                            imageView.setImage(null);
-                        }
-                    } else {
-                        imageView.setImage(null);
-                    }
-                    setGraphic(vbox);
-                }
-            }
-        });
+        sceneListView.setCellFactory(param -> new SceneListCell());
     }
 
     @FXML
@@ -116,32 +80,8 @@ public class MainController {
 
         System.out.println("MainController: Extracting from " + webView.getEngine().getLocation());
         statusLabel.setText("Injecting Extraction Agent...");
-        // progressBar.setVisible(true);
 
-        webViewParser.parseCurrentPage(webView.getEngine(), (story) -> {
-            System.out.println("MainController: Story received - " + story.getTitle() + " (" + story.getScenes().size()
-                    + " scenes)");
-
-            if (story.getScenes().isEmpty()) {
-                Platform.runLater(() -> {
-                    // progressBar.setVisible(false);
-                    statusLabel.setText("⚠️ No scenes found");
-                    System.err.println("MainController: No scenes found");
-                });
-                return;
-            }
-
-            this.currentStory = story;
-            Platform.runLater(() -> {
-                // progressBar.setVisible(false);
-                String title = (story.getTitle() == null || story.getTitle().isBlank())
-                        ? "Untitled Story"
-                        : story.getTitle();
-                statusLabel.setText("Extracted: " + title + " (" + story.getScenes().size() + " scenes)");
-                sceneListView.getItems().setAll(story.getScenes());
-                updateEmptyState();
-            });
-        });
+        webViewParser.parseCurrentPage(webView.getEngine(), this::handleExtractionResult);
     }
 
     @FXML
@@ -164,25 +104,12 @@ public class MainController {
         if (file != null) {
             System.out.println("MainController: Generating PDF to " + file.getAbsolutePath());
             statusLabel.setText("Generating PDF...");
-            // progressBar.setVisible(true);
 
-            new Thread(() -> {
-                try {
-                    jasperPdfService.exportToPdf(currentStory, file.getAbsolutePath());
-                    Platform.runLater(() -> {
-                        // progressBar.setVisible(false);
-                        statusLabel.setText("Saved to: " + file.getName());
-                        System.out.println("MainController: PDF generated successfully");
-                    });
-                } catch (Exception e) {
-                    System.err.println("MainController: Failed to generate PDF");
-                    e.printStackTrace();
-                    Platform.runLater(() -> {
-                        // progressBar.setVisible(false);
-                        showError("Error generating PDF: " + e.getMessage());
-                    });
-                }
-            }).start();
+            runBackgroundTask(
+                () -> jasperPdfService.exportToPdf(currentStory, file.getAbsolutePath()),
+                () -> statusLabel.setText("Saved to: " + file.getName()),
+                "Error generating PDF"
+            );
         }
     }
 
@@ -195,25 +122,12 @@ public class MainController {
 
         System.out.println("MainController: Launching PDF preview");
         statusLabel.setText("Generating Preview...");
-        // progressBar.setVisible(true);
 
-        new Thread(() -> {
-            try {
-                jasperPdfService.viewPdf(currentStory);
-                Platform.runLater(() -> {
-                    // progressBar.setVisible(false);
-                    statusLabel.setText("Preview Launched");
-                    System.out.println("MainController: PDF preview launched");
-                });
-            } catch (Exception e) {
-                System.err.println("MainController: Failed to generate preview");
-                e.printStackTrace();
-                Platform.runLater(() -> {
-                    // progressBar.setVisible(false);
-                    showError("Error generating preview: " + e.getMessage());
-                });
-            }
-        }).start();
+        runBackgroundTask(
+            () -> jasperPdfService.viewPdf(currentStory),
+            () -> statusLabel.setText("Preview Launched"),
+            "Error generating preview"
+        );
     }
 
     /**
@@ -325,5 +239,103 @@ public class MainController {
     private void showError(String message) {
         statusLabel.setText("❌ " + message);
         System.err.println("ERROR: " + message);
+    }
+
+    private void handleExtractionResult(Story story) {
+        System.out.println("MainController: Story received - " + story.getTitle() + " (" + story.getScenes().size() + " scenes)");
+
+        if (story.getScenes().isEmpty()) {
+            Platform.runLater(() -> {
+                statusLabel.setText("⚠️ No scenes found");
+                System.err.println("MainController: No scenes found");
+            });
+            return;
+        }
+
+        this.currentStory = story;
+        logSceneDetails(story);
+
+        Platform.runLater(() -> {
+            String title = (story.getTitle() == null || story.getTitle().isBlank()) ? "Untitled Story" : story.getTitle();
+            statusLabel.setText("Extracted: " + title + " (" + story.getScenes().size() + " scenes)");
+            sceneListView.getItems().setAll(story.getScenes());
+            updateEmptyState();
+        });
+    }
+
+    private void logSceneDetails(Story story) {
+        System.out.println("MainController: Received " + story.getScenes().size() + " scenes");
+        for (int i = 0; i < story.getScenes().size(); i++) {
+            Scene s = story.getScenes().get(i);
+            String imgUrl = s.getImageUrl();
+            String imgStatus = (imgUrl == null) ? "NULL" : (imgUrl.isEmpty() ? "EMPTY" : "LENGTH=" + imgUrl.length());
+            String textPreview = (s.getText() == null) ? "NULL" : s.getText().substring(0, Math.min(20, s.getText().length()));
+            System.out.println("Scene " + i + ": Text=" + textPreview + "..., Image=" + imgStatus);
+        }
+    }
+
+    private void runBackgroundTask(RunnableWithException task, Runnable onSuccess, String errorPrefix) {
+        new Thread(() -> {
+            try {
+                task.run();
+                Platform.runLater(onSuccess);
+            } catch (Exception e) {
+                System.err.println("MainController: " + errorPrefix);
+                e.printStackTrace();
+                Platform.runLater(() -> showError(errorPrefix + ": " + e.getMessage()));
+            }
+        }).start();
+    }
+
+    @FunctionalInterface
+    private interface RunnableWithException {
+        void run() throws Exception;
+    }
+
+    private static class SceneListCell extends ListCell<Scene> {
+        private final ImageView imageView = new ImageView();
+        private final Label textLabel = new Label();
+        private final VBox vbox = new VBox(5, imageView, textLabel);
+
+        public SceneListCell() {
+            imageView.setFitHeight(100);
+            imageView.setPreserveRatio(true);
+            textLabel.setWrapText(true);
+            textLabel.setMaxWidth(300);
+        }
+
+        @Override
+        protected void updateItem(Scene item, boolean empty) {
+            super.updateItem(item, empty);
+            if (empty || item == null) {
+                setGraphic(null);
+            } else {
+                textLabel.setText(item.getText());
+                loadImage(item);
+                setGraphic(vbox);
+            }
+        }
+
+        private void loadImage(Scene item) {
+            if (item.getImageUrl() != null && !item.getImageUrl().isEmpty()) {
+                try {
+                    // Background loading with error handling
+                    Image image = new Image(item.getImageUrl(), 200, 0, true, true, true);
+                    imageView.setImage(image);
+
+                    // Check for errors
+                    if (image.isError()) {
+                        System.err.println("MainController: Image load error: " + image.getException());
+                    }
+                } catch (Exception e) {
+                    System.err.println("Failed to load image: "
+                            + item.getImageUrl().substring(0, Math.min(100, item.getImageUrl().length())));
+                    e.printStackTrace();
+                    imageView.setImage(null);
+                }
+            } else {
+                imageView.setImage(null);
+            }
+        }
     }
 }

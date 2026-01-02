@@ -9,6 +9,13 @@ import javafx.concurrent.Worker;
 import javafx.scene.web.WebEngine;
 import netscape.javascript.JSObject;
 
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -33,6 +40,35 @@ public class WebViewParser {
     private volatile boolean isExtracting = false;
     private final Object extractionLock = new Object();
     private ChangeListener<Worker.State> currentListener = null;
+
+    // === IMAGE CACHING (Solves CORS issues) ===
+    private static final Path CACHE_DIR = Paths.get(
+            System.getProperty("java.io.tmpdir"),
+            "storyforge-cache");
+
+    static {
+        try {
+            Files.createDirectories(CACHE_DIR);
+            System.out.println("Image cache initialized: " + CACHE_DIR);
+
+            // Cleanup on shutdown
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                try {
+                    if (Files.exists(CACHE_DIR)) {
+                        Files.walk(CACHE_DIR)
+                                .sorted(Comparator.reverseOrder())
+                                .map(Path::toFile)
+                                .forEach(java.io.File::delete);
+                        System.out.println("Image cache cleaned up");
+                    }
+                } catch (Exception e) {
+                    // Ignore cleanup errors
+                }
+            }));
+        } catch (Exception e) {
+            System.err.println("Failed to create cache directory: " + e.getMessage());
+        }
+    }
 
     /**
      * Parse the currently loaded page in the WebEngine.
@@ -147,6 +183,18 @@ public class WebViewParser {
     private String buildExtractionScript() {
         return """
                     (function() {
+                        // Redirect console to Java
+                        var oldLog = console.log;
+                        var oldErr = console.error;
+                        console.log = function(msg) {
+                            if (oldLog) oldLog(msg);
+                            if(window.javaApp && window.javaApp.log) window.javaApp.log("INFO: " + msg);
+                        };
+                        console.error = function(msg) {
+                            if (oldErr) oldErr(msg);
+                            if(window.javaApp && window.javaApp.log) window.javaApp.log("ERROR: " + msg);
+                        };
+
                         console.log("=== Gemini Story Extractor v2.0 (Production) ===");
 
                         // ========== HELPER FUNCTIONS ==========
@@ -261,7 +309,26 @@ public class WebViewParser {
                         }
 
                         /**
-                         * Extract image from a layer with multiple selector attempts
+                         * Capture image element as Base64 data URL.
+                         * Solves authentication issues with Gemini images.
+                         */
+                        function captureImageAsDataURL(imgElement) {
+                            try {
+                                var canvas = document.createElement('canvas');
+                                canvas.width = imgElement.naturalWidth || imgElement.width || 400;
+                                canvas.height = imgElement.naturalHeight || imgElement.height || 400;
+                                var ctx = canvas.getContext('2d');
+                                ctx.drawImage(imgElement, 0, 0);
+                                return canvas.toDataURL('image/png');
+                            } catch (error) {
+                                console.error("Failed to capture image: " + error.message);
+                                return null;
+                            }
+                        }
+
+                        /**
+                         * Extract image URL from a layer with multiple selector attempts.
+                         * Returns original URL for Java-side authenticated download.
                          */
                         function extractImageFromLayer(layer) {
                             var selectors = [
@@ -273,8 +340,11 @@ public class WebViewParser {
 
                             for (var i = 0; i < selectors.length; i++) {
                                 var img = layer.querySelector(selectors[i]);
-                                if (img && img.src && isValidStoryImage(img.src)) {
-                                    return img.src;
+                                if (img && img.complete && img.naturalHeight > 0) {
+                                    if (isValidStoryImage(img.src)) {
+                                        console.log("Found valid image: " + img.src.substring(0, 60) + "...");
+                                        return img.src;  // Return URL directly
+                                    }
                                 }
                             }
 
@@ -291,9 +361,9 @@ public class WebViewParser {
                             var previousHeight = 0;
                             var stableCount = 0;
                             var STABLE_THRESHOLD = 3; // Must be stable for 3 checks
-                            var CHECK_INTERVAL = 80;  // Check every 80ms
-                            var SCROLL_DISTANCE = 1000;
-                            var MAX_TIME = 30000; // 30 second hard timeout
+                            var CHECK_INTERVAL = 200;  // Check every 200ms (slower to allow render)
+                            var SCROLL_DISTANCE = 800;
+                            var MAX_TIME = 5000; // 5 second hard timeout
                             var startTime = Date.now();
 
                             var timer = setInterval(function() {
@@ -302,6 +372,11 @@ public class WebViewParser {
                                     document.body.scrollHeight,
                                     document.documentElement.scrollHeight
                                 );
+
+                                // Debug log every second
+                                if (Math.floor(elapsed/1000) > Math.floor((elapsed-CHECK_INTERVAL)/1000)) {
+                                    console.log("Scrolling... " + (elapsed/1000).toFixed(1) + "s, Height: " + currentHeight);
+                                }
 
                                 // Hard timeout safety net
                                 if (elapsed > MAX_TIME) {
@@ -314,7 +389,7 @@ public class WebViewParser {
                                 // Stabilization check
                                 if (currentHeight === previousHeight) {
                                     stableCount++;
-                                    if (stableCount >= STABLE_THRESHOLD) {
+                                    if (stableCount >= 2) { // 2 checks = 400ms stability
                                         console.log("Content stabilized at " + currentHeight + "px after " + (elapsed/1000).toFixed(1) + "s");
                                         clearInterval(timer);
                                         completion();
@@ -398,31 +473,65 @@ public class WebViewParser {
     }
 
     /**
-     * Deduplicates scenes on the Java side for additional safety.
-     * Filters out duplicates based on both text and image.
+     * Downloads an image from a URL and caches it locally.
+     * Returns file:// URL to cached image, or null if download fails.
      */
-    private List<Scene> deduplicateScenes(List<Scene> scenes) {
-        Set<String> seenTexts = new HashSet<>();
-        Set<String> seenImages = new HashSet<>();
+    private static String downloadAndCacheImage(String imageUrl) {
+        if (imageUrl == null || imageUrl.isEmpty())
+            return null;
+
+        try {
+            String filename = Math.abs(imageUrl.hashCode()) + ".png";
+            Path cachedFile = CACHE_DIR.resolve(filename);
+
+            if (Files.exists(cachedFile) && Files.size(cachedFile) > 0) {
+                return cachedFile.toUri().toString();
+            }
+
+            System.out.println("Downloading: " + imageUrl.substring(0, Math.min(60, imageUrl.length())));
+
+            URL url = new URL(imageUrl);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+            conn.setRequestProperty("Referer", "https://gemini.google.com/");
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(10000);
+
+            try (InputStream in = conn.getInputStream();
+                    OutputStream out = Files.newOutputStream(cachedFile)) {
+                in.transferTo(out);
+            }
+
+            System.out.println("Cached: " + filename + " (" + Files.size(cachedFile) + " bytes)");
+            return cachedFile.toUri().toString();
+
+        } catch (Exception e) {
+            System.err.println("Download failed: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Deduplicates scenes on the Java side for additional safety.
+     * Filters out exact duplicates.
+     */
+    private static List<Scene> deduplicateScenes(List<Scene> scenes) {
         List<Scene> unique = new ArrayList<>();
+        Set<String> seenKeys = new HashSet<>();
 
         for (Scene scene : scenes) {
-            String textKey = scene.getText() != null ? scene.getText().trim().toLowerCase() : "";
-            String imgKey = scene.getImageUrl() != null ? scene.getImageUrl() : "";
+            String text = scene.getText() != null ? scene.getText().trim() : "";
+            String imageUrl = scene.getImageUrl();
+            // Use hash for image url to save memory in the set, as data URLs are huge
+            String imageKey = imageUrl != null ? String.valueOf(imageUrl.hashCode()) : "null";
 
-            // Skip if both text AND image are duplicates
-            boolean textDupe = !textKey.isEmpty() && seenTexts.contains(textKey);
-            boolean imgDupe = !imgKey.isEmpty() && seenImages.contains(imgKey);
+            String key = text + "||" + imageKey;
 
-            if (!textDupe || !imgDupe) {
+            if (!seenKeys.contains(key)) {
                 unique.add(scene);
-                if (!textKey.isEmpty())
-                    seenTexts.add(textKey);
-                if (!imgKey.isEmpty())
-                    seenImages.add(imgKey);
+                seenKeys.add(key);
             }
         }
-
         return unique;
     }
 
@@ -482,10 +591,27 @@ public class WebViewParser {
                 if (story.getScenes() == null) {
                     System.out.println("JavaBridge: No scenes in story, initializing empty list");
                     story.setScenes(new ArrayList<>());
+                } else {
+                    story.setScenes(deduplicateScenes(story.getScenes()));
                 }
 
                 System.out.println("JavaBridge: Parsed story '" + story.getTitle() + "' with " +
                         story.getScenes().size() + " scenes");
+
+                // Download and cache images
+                int imageCount = 0;
+                for (Scene scene : story.getScenes()) {
+                    if (scene.getImageUrl() != null && !scene.getImageUrl().isEmpty()) {
+                        String cachedUrl = downloadAndCacheImage(scene.getImageUrl());
+                        if (cachedUrl != null) {
+                            scene.setImageUrl(cachedUrl);
+                            imageCount++;
+                        } else {
+                            scene.setImageUrl(null);
+                        }
+                    }
+                }
+                System.out.println("JavaBridge: Cached " + imageCount + " images");
 
                 // Invoke callback on JavaFX thread
                 Story finalStory = story;
