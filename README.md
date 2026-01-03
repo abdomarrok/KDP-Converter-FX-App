@@ -1,75 +1,68 @@
 # StoryForge (Gemini to KDP Converter)
 
-A powerful desktop application built with **JavaFX** that converts **Google Gemini** generated stories into professional, print-ready PDF books for **Amazon KDP**.
+A professional desktop application built with **JavaFX** that converts **Google Gemini** generated stories into print-ready PDF picture books for **Amazon KDP**.
 
 ## 🚀 Overview
 
-StoryForge streamlines the process of publishing AI-generated children's books. It intelligently extracts content from Gemini shared links, provides a robust **Scene Editor**, and generates KDP-compliant PDFs with dynamic layouts.
+StoryForge acts as a bridge between AI creativity and physical publishing. It extracts structured story content from Gemini shared links, provides a comprehensive **Studio Mode** for editing and layout control, and generates industry-standard PDFs ready for upload to Amazon KDP.
 
 ## ✨ Key Features
 
-### 📖 Story Extraction & Editing
+### 🕵️‍♂️ Hardened Story Extraction
 
-- **Smart Extraction**: Automatically parses text and images from Gemini shared URLs.
-- **Scene Editor**:
-  - Edit scene text and preview images.
-  - Reorder scenes via buttons (Up/Down).
+- **Adaptive Parsing**: "System 2.0" logic intelligently parses text and images from various Gemini UI versions.
+- **Authenticated Downloads**: Uses the WebView's active session to bypass CORS and download high-quality images.
+- **Smart Deduplication**: Prevents duplicate scenes during scrolling extraction.
+
+### 🖋️ Studio Mode (Editor)
+
+- **Split-View Workflow**: Toggle between the **Browser** (Source) and **Editor** (Studio) in a seamless 2-column layout.
+- **Scene Management**:
+  - Reorder scenes with simple Up/Down controls.
   - Delete unwanted scenes.
-  - **Save/Load Projects**: Persist your work to JSON files (`~/.storyforge/projects`) and resume anytime.
+  - **Custom Scene Titles**: Rename scenes for better organization.
+- **Per-Page Overrides**:
+  - **Layout Override**: Force specific pages to be "Full Page Image", "Text Only", etc., independent of the global template.
+  - **Font Size Override**: Adjust text size for specific scenes (e.g., dense text pages).
+  - **Image Replacement**: Swap out AI images with local files.
 
-### 🎨 Visual Layout & KDP Support
+### 📚 KDP Template Support
 
-- **Dynamic KDP Templates**: Supports standard KDP book sizes:
-  - Standard Paperback (6x9")
-  - Picture Book (8.5x8.5")
-  - Workbook (8.5x11")
-  - Large Print (8x10")
-- **Layout Options**:
-  - **Full Page Image**: Image dominates the page, text on next page or overlay (layout dependent).
-  - **Top Image, Text Below**: Classic picture book style.
-  - **Sidebar Image**: Image on left, text on right.
-  - **Text Only**: For chapter books.
-- **Dynamic Resizing**: PDF engine (JasperReports) automatically adjusts margins and content bounds to fit the selected page size.
+Includes 6 standard presets compliant with Amazon KDP specifications:
 
-### 🛠️ Advanced Technical Features
+- **Paperback 6x9"** (Standard & Full Bleed)
+- **Picture Book 8.5x8.5"** (Standard & Full Bleed)
+- **Workbook 8.5x11"** (Standard & Full Bleed)
 
-- **URL History**: Automatically remembers last loaded URL (`~/.storyforge/url_history.json`).
-- **Authenticated Downloads**: Bypasses CORS restrictions by using the WebView's authenticated session.
-- **Local Caching**: Caches images for fast previews.
-- **Parallel Processing**: Background tasks ensure UI responsiveness.
+### 💾 Robust Persistence
+
+- **Embedded Database**: Uses an embedded **MariaDB** instance to safely store all your stories and metadata locally.
+- **Auto-Save**: Changes to scenes and settings are persisted automatically.
+- **URL History**: Remembers your last visited Gemini link for quick resumption.
 
 ## 🛠️ Technology Stack
 
-- **Language**: Java 21 (LTS)
-- **Framework**: JavaFX 21
+- **Core**: Java 21 (LTS), JavaFX 21
+- **UI Architecture**: Modular FXML with Controller Injection
+- **Database**: Embedded MariaDB (via `ch.vorburger.mariaDB4j`) + HikariCP
+- **PDF Engine**: JasperReports 7.0 (Dynamic Templates)
 - **Build Tool**: Maven
-- **PDF Engine**: JasperReports 7.0 (Dynamic Design)
-- **JSON Processing**: Jackson Databind
-- **Logging**: Log4j2
-
-## 📋 Prerequisites
-
-- **Java 21 SDK** (Required for modern JavaFX features)
-- **Maven** (Apache Maven 3.8+)
 
 ## 🏃‍♂️ How to Run
 
-### Using IDE (Recommended)
+### Quick Start
 
-Open the project in **IntelliJ IDEA** or **VS Code**:
-
-1. Reload/Sync Maven project.
-2. Run `com.boilerplate.app.App`.
-
-### Using Command Line
+Simply run the helper script in the root directory:
 
 ```powershell
-mvn clean javafx:run
+./run.bat
 ```
 
-### Using Helper Script
+### From IDE (IntelliJ / VS Code)
 
-Run `run.bat` in the root directory.
+1. Open the project folder.
+2. Sync Maven dependencies.
+3. Run `App.java`.
 
 ## 📄 License
 
