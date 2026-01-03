@@ -61,7 +61,7 @@
             <Label text="📄 KDP Template" styleClass="panel-title"/>
             <HBox spacing="10" alignment="CENTER_LEFT">
               <Label text="Size:" minWidth="60"/>
-              <ComboBox fx:id="templateCombo" maxWidth="Infinity" HBox.hgrow="ALWAYS">
+              <ComboBox fx:id="templateCombo" maxWidth="Infinity" HBox.hgrow="ALWAYS" onAction="#handleTemplateSelection">
                 <items>
                   <!-- Populated in Controller -->
                 </items>
@@ -69,7 +69,7 @@
             </HBox>
             <HBox spacing="10" alignment="CENTER_LEFT">
               <Label text="Layout:" minWidth="60"/>
-              <ComboBox fx:id="layoutCombo" maxWidth="Infinity" HBox.hgrow="ALWAYS">
+              <ComboBox fx:id="layoutCombo" maxWidth="Infinity" HBox.hgrow="ALWAYS" onAction="#handleLayoutSelection">
                 <items>
                   <FXCollections fx:factory="observableArrayList">
                     <String fx:value="Full Page Image"/>
@@ -97,28 +97,15 @@
               <Label fx:id="sceneIndexLabel" text="Scene 0 of 0" style="-fx-text-fill: gray;"/>
             </HBox>
             <ScrollPane VBox.vgrow="ALWAYS" fitToWidth="true" styleClass="editor-scroll">
-              <VBox spacing="15" style="-fx-padding: 15;">
-                <!-- Large Image Preview -->
-                <VBox alignment="CENTER" spacing="10">
-                  <Label text="Image Preview" style="-fx-font-weight: bold;"/>
-                  <StackPane styleClass="image-preview-container" minHeight="250" maxHeight="300">
-                    <ImageView fx:id="editorImageView" preserveRatio="true" fitWidth="350"/>
-                    <Label fx:id="noImageLabel" text="No image" style="-fx-text-fill: gray;"/>
-                  </StackPane>
-                  <Button text="📷 Replace Image" onAction="#handleReplaceImage" disable="true"/>
-                </VBox>
-                <Separator/>
-                <!-- Text Editor -->
-                <VBox spacing="5" VBox.vgrow="ALWAYS">
-                  <Label text="Scene Text" style="-fx-font-weight: bold;"/>
-                  <TextArea fx:id="sceneTextArea" wrapText="true" prefRowCount="8" 
-                                                                                                                                            promptText="Enter scene text here..." VBox.vgrow="ALWAYS"/>
-                </VBox>
-                <!-- Save Button -->
-                <HBox alignment="CENTER_RIGHT">
-                  <Button text="💾 Save Changes" onAction="#handleSaveScene" styleClass="btn-success"/>
-                </HBox>
-              </VBox>
+              <StackPane fx:id="previewContainer" style="-fx-padding: 20; -fx-background-color: #f0f0f0;">
+                <!-- The "Paper" Page -->
+                <StackPane fx:id="pagePreview" styleClass="page-shadow" maxWidth="500" maxHeight="700" style="-fx-background-color: white;">
+                  <!-- Dynamic Content Injected by Controller -->
+                  <VBox alignment="CENTER" spacing="20">
+                    <Label text="Select a scene to edit" style="-fx-text-fill: gray;"/>
+                  </VBox>
+                </StackPane>
+              </StackPane>
             </ScrollPane>
           </VBox>
           <!-- RIGHT PANEL: WebView Browser -->

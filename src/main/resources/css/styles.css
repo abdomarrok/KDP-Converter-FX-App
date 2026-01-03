@@ -251,5 +251,27 @@
 }
 
 .scroll-pane > .viewport {
-  -fx-background-color: white;
+  -fx-background-color: -color-bg-subtle;
+}
+
+/* === WYSIWYG Editor === */
+.page-shadow {
+  -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.2), 10, 0, 0, 4);
+  -fx-background-radius: 2;
+}
+
+.editor-textarea {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-padding: 0;
+}
+
+.editor-textarea .content {
+    -fx-background-color: transparent;
+}
+
+.editor-textarea:focused {
+  -fx-background-color: rgba(243, 244, 246, 0.5); /* subtle gray highlight */
+  -fx-border-color: -color-border;
+  -fx-border-style: dashed;
 }

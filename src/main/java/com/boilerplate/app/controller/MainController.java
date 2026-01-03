@@ -5,6 +5,7 @@ import com.boilerplate.app.service.*;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.web.WebView;
 import javafx.stage.FileChooser;
@@ -60,11 +61,7 @@ public class MainController {
     @FXML
     private Label sceneIndexLabel;
     @FXML
-    private ImageView editorImageView;
-    @FXML
-    private Label noImageLabel;
-    @FXML
-    private TextArea sceneTextArea;
+    private StackPane pagePreview;
 
     // === Browser Panel ===
     @FXML
@@ -128,9 +125,7 @@ public class MainController {
         editorController = new EditorController();
         injectField(editorController, "editorPanel", editorPanel);
         injectField(editorController, "sceneIndexLabel", sceneIndexLabel);
-        injectField(editorController, "editorImageView", editorImageView);
-        injectField(editorController, "noImageLabel", noImageLabel);
-        injectField(editorController, "sceneTextArea", sceneTextArea);
+        injectField(editorController, "pagePreview", pagePreview);
         editorController.init(this);
 
         // 4. Browser Controller
@@ -239,35 +234,27 @@ public class MainController {
     }
 
     // Editor
-    @FXML
-    private void handleSaveScene() {
-        editorController.handleSaveScene();
-    }
-
-    @FXML
-    private void handleReplaceImage() {
-        editorController.handleReplaceImage();
-    }
-
     // === Main Controller Logic (Template, Persistence, Orchestration) ===
 
     @FXML
-    private void handleTemplateChange() {
+    private void handleTemplateSelection() {
         KdpTemplate selected = templateCombo.getValue();
         if (selected == null)
             return;
         currentTemplate = selected;
+        editorController.updateTemplate(currentTemplate);
         updateStatus("Template: " + currentTemplate.getName());
     }
 
     @FXML
-    private void handleLayoutChange() {
+    private void handleLayoutSelection() {
         String selected = layoutCombo.getValue();
         if (selected == null)
             return;
         for (ImageLayout layout : ImageLayout.values()) {
             if (layout.getDisplayName().equals(selected)) {
                 currentTemplate.setLayout(layout);
+                editorController.updateTemplate(currentTemplate);
                 break;
             }
         }
@@ -309,7 +296,7 @@ public class MainController {
 
         if (scene != null) {
             int index = currentStory.getScenes().indexOf(scene);
-            editorController.loadScene(scene, index, currentStory.getScenes().size());
+            editorController.loadScene(scene, index, currentStory.getScenes().size(), currentTemplate);
         } else {
             editorController.clear();
         }
