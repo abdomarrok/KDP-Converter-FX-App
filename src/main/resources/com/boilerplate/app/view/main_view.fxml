@@ -28,7 +28,7 @@
 
   <!-- CENTER: Main Content -->
   <center>
-    <SplitPane fx:id="mainSplitPane" dividerPositions="0.25, 0.55">
+    <SplitPane fx:id="mainSplitPane" dividerPositions="0.30">
       <items>
         <!-- LEFT PANEL: Scene List + KDP Settings -->
         <VBox spacing="0" styleClass="panel">
@@ -87,49 +87,53 @@
             </HBox>
           </VBox>
         </VBox>
-        <!-- CENTER PANEL: Scene Editor (visible in Edit Mode) -->
-        <VBox fx:id="editorPanel" spacing="0" styleClass="panel" visible="false" managed="false">
-          <HBox alignment="CENTER_LEFT" spacing="10" styleClass="panel-header">
-            <Label fx:id="editorTitleLabel" text="📝 Scene Editor" styleClass="panel-title"/>
-            <Region HBox.hgrow="ALWAYS"/>
-            <Label fx:id="sceneIndexLabel" text="Scene 0 of 0" style="-fx-text-fill: gray;"/>
-          </HBox>
-          <ScrollPane VBox.vgrow="ALWAYS" fitToWidth="true" styleClass="editor-scroll">
-            <VBox spacing="15" style="-fx-padding: 15;">
-              <!-- Large Image Preview -->
-              <VBox alignment="CENTER" spacing="10">
-                <Label text="Image Preview" style="-fx-font-weight: bold;"/>
-                <StackPane styleClass="image-preview-container" minHeight="250" maxHeight="300">
-                  <ImageView fx:id="editorImageView" preserveRatio="true" fitWidth="350"/>
-                  <Label fx:id="noImageLabel" text="No image" style="-fx-text-fill: gray;"/>
-                </StackPane>
-                <Button text="📷 Replace Image" onAction="#handleReplaceImage" disable="true"/>
+        <!-- RIGHT PANEL CONTENT -->
+        <StackPane>
+          <!-- CENTER PANEL: Scene Editor (visible in Edit Mode) -->
+          <VBox fx:id="editorPanel" spacing="0" styleClass="panel" visible="false" managed="false">
+            <HBox alignment="CENTER_LEFT" spacing="10" styleClass="panel-header">
+              <Label fx:id="editorTitleLabel" text="📝 Scene Editor" styleClass="panel-title"/>
+              <Region HBox.hgrow="ALWAYS"/>
+              <Label fx:id="sceneIndexLabel" text="Scene 0 of 0" style="-fx-text-fill: gray;"/>
+            </HBox>
+            <ScrollPane VBox.vgrow="ALWAYS" fitToWidth="true" styleClass="editor-scroll">
+              <VBox spacing="15" style="-fx-padding: 15;">
+                <!-- Large Image Preview -->
+                <VBox alignment="CENTER" spacing="10">
+                  <Label text="Image Preview" style="-fx-font-weight: bold;"/>
+                  <StackPane styleClass="image-preview-container" minHeight="250" maxHeight="300">
+                    <ImageView fx:id="editorImageView" preserveRatio="true" fitWidth="350"/>
+                    <Label fx:id="noImageLabel" text="No image" style="-fx-text-fill: gray;"/>
+                  </StackPane>
+                  <Button text="📷 Replace Image" onAction="#handleReplaceImage" disable="true"/>
+                </VBox>
+                <Separator/>
+                <!-- Text Editor -->
+                <VBox spacing="5" VBox.vgrow="ALWAYS">
+                  <Label text="Scene Text" style="-fx-font-weight: bold;"/>
+                  <TextArea fx:id="sceneTextArea" wrapText="true" prefRowCount="8" 
+                                                                                                                                            promptText="Enter scene text here..." VBox.vgrow="ALWAYS"/>
+                </VBox>
+                <!-- Save Button -->
+                <HBox alignment="CENTER_RIGHT">
+                  <Button text="💾 Save Changes" onAction="#handleSaveScene" styleClass="btn-success"/>
+                </HBox>
               </VBox>
-              <Separator/>
-              <!-- Text Editor -->
-              <VBox spacing="5" VBox.vgrow="ALWAYS">
-                <Label text="Scene Text" style="-fx-font-weight: bold;"/>
-                <TextArea fx:id="sceneTextArea" wrapText="true" prefRowCount="8" 
-                                                                          promptText="Enter scene text here..." VBox.vgrow="ALWAYS"/>
-              </VBox>
-              <!-- Save Button -->
-              <HBox alignment="CENTER_RIGHT">
-                <Button text="💾 Save Changes" onAction="#handleSaveScene" styleClass="btn-success"/>
-              </HBox>
-            </VBox>
-          </ScrollPane>
-        </VBox>
-        <!-- RIGHT PANEL: WebView Browser -->
-        <VBox spacing="0" styleClass="panel">
-          <HBox alignment="CENTER_LEFT" spacing="10" styleClass="panel-header">
-            <Label text="🌐 Browser" styleClass="panel-title"/>
-            <Region HBox.hgrow="ALWAYS"/>
-            <Button text="⟳" onAction="#handleRefreshBrowser" styleClass="btn-small"/>
-          </HBox>
-          <StackPane VBox.vgrow="ALWAYS">
-            <WebView fx:id="webView"/>
-          </StackPane>
-        </VBox>
+            </ScrollPane>
+          </VBox>
+          <!-- RIGHT PANEL: WebView Browser -->
+          <VBox fx:id="browserPanel" spacing="0" styleClass="panel">
+            <HBox alignment="CENTER_LEFT" spacing="10" styleClass="panel-header">
+              <Label text="🌐 Browser" styleClass="panel-title"/>
+              <Region HBox.hgrow="ALWAYS"/>
+              <Button fx:id="extractButton" text="🔮 Extract" onAction="#handleExtract" styleClass="btn-primary"/>
+              <Button text="⟳" onAction="#handleRefreshBrowser" styleClass="btn-small"/>
+            </HBox>
+            <StackPane VBox.vgrow="ALWAYS">
+              <WebView fx:id="webView"/>
+            </StackPane>
+          </VBox>
+        </StackPane>
       </items>
     </SplitPane>
   </center>
@@ -144,7 +148,6 @@
       <Button text="📂 Open" onAction="#handleOpenStory"/>
       <Button text="💾 Save" onAction="#handleSaveStory"/>
       <Separator orientation="VERTICAL"/>
-      <Button fx:id="extractButton" text="🔮 Extract Scenes" onAction="#handleExtract" styleClass="btn-primary"/>
       <Button text="📄 Generate PDF" onAction="#handleGeneratePdf"/>
       <Button text="👁 Preview PDF" onAction="#handlePreviewPdf" styleClass="btn-accent"/>
     </HBox>

@@ -68,6 +68,8 @@ public class MainController {
 
     // === Browser Panel ===
     @FXML
+    private VBox browserPanel;
+    @FXML
     private WebView webView;
     @FXML
     private Button extractButton;
@@ -135,6 +137,8 @@ public class MainController {
         browserController = new BrowserController();
         injectField(browserController, "webView", webView);
         injectField(browserController, "extractButton", extractButton);
+        // BrowserController doesn't current need the root panel, Main handles
+        // visibility
         browserController.init(this);
     }
 
@@ -317,6 +321,10 @@ public class MainController {
 
     public void setEditMode(boolean enabled) {
         editorController.setEditMode(enabled);
+        if (browserPanel != null) {
+            browserPanel.setVisible(!enabled);
+            browserPanel.setManaged(!enabled);
+        }
     }
 
     public Story getCurrentStory() {
