@@ -63,12 +63,7 @@
               <Label text="Size:" minWidth="60"/>
               <ComboBox fx:id="templateCombo" maxWidth="Infinity" HBox.hgrow="ALWAYS">
                 <items>
-                  <FXCollections fx:factory="observableArrayList">
-                    <String fx:value="Standard Paperback (6x9)"/>
-                    <String fx:value="Picture Book (8.5x8.5)"/>
-                    <String fx:value="Workbook (8.5x11)"/>
-                    <String fx:value="Large Print (8x10)"/>
-                  </FXCollections>
+                  <!-- Populated in Controller -->
                 </items>
               </ComboBox>
             </HBox>
@@ -115,7 +110,7 @@
               <VBox spacing="5" VBox.vgrow="ALWAYS">
                 <Label text="Scene Text" style="-fx-font-weight: bold;"/>
                 <TextArea fx:id="sceneTextArea" wrapText="true" prefRowCount="8" 
-                                                          promptText="Enter scene text here..." VBox.vgrow="ALWAYS"/>
+                                                                          promptText="Enter scene text here..." VBox.vgrow="ALWAYS"/>
               </VBox>
               <!-- Save Button -->
               <HBox alignment="CENTER_RIGHT">

@@ -46,7 +46,7 @@ public class MainController {
 
     // === KDP Template Panel ===
     @FXML
-    private ComboBox<String> templateCombo;
+    private ComboBox<KdpTemplate> templateCombo;
     @FXML
     private ComboBox<String> layoutCombo;
     @FXML
@@ -151,8 +151,40 @@ public class MainController {
     }
 
     private void setupTemplateControls() {
-        templateCombo.getSelectionModel().selectFirst();
+        // Populate Template Combo
+        templateCombo.setItems(javafx.collections.FXCollections.observableArrayList(KdpPresets.getAllPresets()));
+        templateCombo.setConverter(new javafx.util.StringConverter<KdpTemplate>() {
+            @Override
+            public String toString(KdpTemplate object) {
+                return object != null ? object.getName() : "";
+            }
+
+            @Override
+            public KdpTemplate fromString(String string) {
+                return templateCombo.getItems().stream()
+                        .filter(t -> t.getName().equals(string))
+                        .findFirst().orElse(null);
+            }
+        });
+        templateCombo.getSelectionModel().select(KdpPresets.getDefault());
+        templateCombo.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                currentTemplate = newVal;
+                logger.info("Template selected: {}", newVal.getName());
+                // Set default layout based on template type
+                if (newVal.getLayout() != null) {
+                    String layoutName = newVal.getLayout().name();
+                    // Map enum name to display string if needed, or just select similar
+                    // Simplified: just picking a default logical for the template
+                    // layoutCombo value is String currently
+                }
+            }
+        });
+
+        // Layout Combo
         layoutCombo.getSelectionModel().select(1);
+
+        // Font Size
         SpinnerValueFactory<Integer> valueFactory = new SpinnerValueFactory.IntegerSpinnerValueFactory(8, 36, 14, 2);
         fontSizeSpinner.setValueFactory(valueFactory);
     }
@@ -217,10 +249,10 @@ public class MainController {
 
     @FXML
     private void handleTemplateChange() {
-        String selected = templateCombo.getValue();
+        KdpTemplate selected = templateCombo.getValue();
         if (selected == null)
             return;
-        currentTemplate = KdpPresets.findByName(selected);
+        currentTemplate = selected;
         updateStatus("Template: " + currentTemplate.getName());
     }
 
