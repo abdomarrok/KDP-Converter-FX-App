@@ -75,9 +75,11 @@ public class MainController {
     @FXML
     private Label statusLabel;
 
+    // === PDF ===
     // === Services ===
     private final StoryService storyService = new StoryService();
     private final JasperPdfService jasperPdfService = new JasperPdfService();
+    private final com.boilerplate.app.service.PipelineService pipelineService = new com.boilerplate.app.service.PipelineService();
 
     // === Sub-Controllers (Delegates) ===
     private NavigationController navController;
@@ -183,7 +185,37 @@ public class MainController {
     // Browser
     @FXML
     private void handleExtract() {
+        // This is triggered by FXML, but BrowserController also has a handleExtract
+        // The button is in browser_panel.fxml which allows BrowserController to handle
+        // it directly
+        // But for MainController orchestration, we use handleExtractAction called by
+        // Delegate
         browserController.handleExtract();
+    }
+
+    /**
+     * Called by BrowserController to initiate extraction pipeline.
+     */
+    public void handleExtractAction() {
+        updateStatus("Starting extraction pipeline...");
+
+        pipelineService.clearSteps();
+        pipelineService
+                .addStep(new com.boilerplate.app.pipeline.steps.ExtractionStep(browserController.getWebEngine()));
+
+        com.boilerplate.app.pipeline.PipelineContext context = new com.boilerplate.app.pipeline.PipelineContext();
+
+        pipelineService.execute(context)
+                .thenAccept(ctx -> {
+                    Story story = ctx.getStory();
+                    handleExtractionResult(story);
+                })
+                .exceptionally(ex -> {
+                    Platform.runLater(() -> {
+                        showError("Extraction failed: " + ex.getMessage());
+                    });
+                    return null;
+                });
     }
 
     // Scene List
@@ -259,6 +291,9 @@ public class MainController {
     }
 
     public void handleExtractionResult(Story story) {
+        if (story == null)
+            return;
+
         if (story.getScenes().isEmpty()) {
             Platform.runLater(() -> updateStatus("⚠️ No scenes found"));
             return;
@@ -362,7 +397,6 @@ public class MainController {
     }
 
     // === PDF ===
-    private final PdfGenerationService pdfGenerationService = new PdfGenerationService();
 
     @FXML
     private void handleGeneratePdf() {
@@ -374,13 +408,6 @@ public class MainController {
             return;
         }
 
-        if (pdfGenerationService.isRunning()) {
-            com.boilerplate.app.util.ErrorHandler.showWarning(
-                    "PDF Generation in Progress",
-                    "A PDF is already being generated. Please wait for it to complete.");
-            return;
-        }
-
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Save PDF As");
         fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PDF Files", "*.pdf"));
@@ -388,36 +415,37 @@ public class MainController {
 
         File file = fileChooser.showSaveDialog(statusLabel.getScene().getWindow());
         if (file != null) {
-            // Setup PDF generation service
-            pdfGenerationService.setStory(currentStory);
-            pdfGenerationService.setOutputFile(file);
-            pdfGenerationService.setTemplate(currentTemplate);
+            updateStatus("Starting PDF Generation Pipeline...");
 
-            pdfGenerationService.setOnSucceeded(e -> {
-                updateStatus("✅ Saved PDF: " + file.getName());
-                com.boilerplate.app.util.ErrorHandler.showInfo(
-                        "PDF Generated",
-                        "PDF successfully saved to:\n" + file.getAbsolutePath());
-            });
+            pipelineService.clearSteps();
+            pipelineService.addStep(new com.boilerplate.app.pipeline.steps.PdfGenerationStep());
 
-            pdfGenerationService.setOnFailed(e -> {
-                Throwable exception = pdfGenerationService.getException();
-                logger.error("PDF generation failed", exception);
-                com.boilerplate.app.util.ErrorHandler.showError(
-                        "PDF Generation Failed",
-                        "Failed to generate PDF",
-                        "An error occurred while generating the PDF. Please check the story content and try again.",
-                        exception);
-                updateStatus("❌ PDF generation failed");
-            });
+            com.boilerplate.app.pipeline.PipelineContext context = new com.boilerplate.app.pipeline.PipelineContext();
+            context.setStory(currentStory);
+            context.setTemplate(currentTemplate);
+            context.setOutputFile(file);
 
-            pdfGenerationService.messageProperty().addListener((obs, oldMsg, newMsg) -> {
-                if (newMsg != null) {
-                    updateStatus(newMsg);
-                }
-            });
-
-            pdfGenerationService.restart();
+            pipelineService.execute(context)
+                    .thenAccept(ctx -> {
+                        Platform.runLater(() -> {
+                            updateStatus("✅ Saved PDF: " + file.getName());
+                            com.boilerplate.app.util.ErrorHandler.showInfo(
+                                    "PDF Generated",
+                                    "PDF successfully saved to:\n" + file.getAbsolutePath());
+                        });
+                    })
+                    .exceptionally(ex -> {
+                        Platform.runLater(() -> {
+                            Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                            updateStatus("❌ PDF generation failed");
+                            com.boilerplate.app.util.ErrorHandler.showError(
+                                    "PDF Generation Failed",
+                                    "Failed to generate PDF",
+                                    cause.getMessage(),
+                                    cause);
+                        });
+                        return null;
+                    });
         }
     }
 

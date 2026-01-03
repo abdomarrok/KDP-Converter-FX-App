@@ -59,8 +59,11 @@ public class WebViewParser {
         // Guard against concurrent extractions
         synchronized (extractionLock) {
             if (isExtracting) {
-                logger.warn("Extraction already in progress, ignoring request");
-                return;
+                // DEADLOCK FIX: Instead of ignoring, forcibly reset and allow the new
+                // extraction
+                // This handles the case where a previous extraction's callback didn't complete
+                logger.warn("Previous extraction still marked as in progress - forcibly resetting state");
+                isExtracting = false;
             }
             isExtracting = true;
         }
@@ -458,7 +461,6 @@ public class WebViewParser {
                 """;
     }
 
-
     /**
      * Deduplicates scenes on the Java side for additional safety.
      * Filters out exact duplicates.
@@ -563,7 +565,8 @@ public class WebViewParser {
                         for (Scene scene : scenesWithImages) {
                             futures.add(executor.submit(() -> {
                                 // Use ImageCacheService directly since we're in a static inner class
-                                String cachedUrl = ImageCacheService.getInstance().downloadAndCache(scene.getImageUrl());
+                                String cachedUrl = ImageCacheService.getInstance()
+                                        .downloadAndCache(scene.getImageUrl());
                                 if (cachedUrl != null) {
                                     scene.setImageUrl(cachedUrl);
                                 } else {
