@@ -2,6 +2,7 @@ package com.boilerplate.app.controller;
 
 import com.boilerplate.app.model.*;
 import com.boilerplate.app.service.*;
+import com.boilerplate.app.service.PdfGenerationService;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -269,6 +270,12 @@ public class MainController {
     public void showError(String msg) {
         statusLabel.setText("❌ " + msg);
         logger.error(msg);
+        // Also show error dialog for critical errors
+        com.boilerplate.app.util.ErrorHandler.showError(
+            "Error",
+            "An error occurred",
+            msg
+        );
     }
 
     public void loadUrlInBrowser(String url) {
@@ -323,13 +330,26 @@ public class MainController {
     @FXML
     private void handleSaveStory() {
         if (currentStory == null) {
-            showError("No story to save!");
+            com.boilerplate.app.util.ErrorHandler.showError(
+                "No Story to Save",
+                "Cannot save story",
+                "Please extract or load a story first."
+            );
             return;
         }
         updateStatus("Saving to database...");
         runBackgroundTask(
-                () -> storyService.saveStoryAsync(currentStory),
-                (res) -> updateStatus("✅ Saved: " + currentStory.getTitle()),
+                () -> {
+                    storyService.saveStoryAsync(currentStory).join();
+                    return null;
+                },
+                (res) -> {
+                    updateStatus("✅ Saved: " + currentStory.getTitle());
+                    com.boilerplate.app.util.ErrorHandler.showInfo(
+                        "Story Saved",
+                        "Story '" + currentStory.getTitle() + "' has been saved successfully."
+                    );
+                },
                 "Error saving story");
     }
 
@@ -339,14 +359,29 @@ public class MainController {
         storyService.getAllStoriesAsync()
                 .thenAccept(stories -> Platform.runLater(() -> {
                     if (stories.isEmpty()) {
-                        showError("No saved stories found.");
+                        com.boilerplate.app.util.ErrorHandler.showInfo(
+                            "No Stories Found",
+                            "No saved stories found. Extract a story first to save it."
+                        );
                         return;
                     }
                     ChoiceDialog<Story> dialog = new ChoiceDialog<>(stories.get(0), stories);
                     dialog.setTitle("Open Story");
-                    dialog.setHeaderText("Select a story");
+                    dialog.setHeaderText("Select a story to open");
                     dialog.showAndWait().ifPresent(selected -> loadFullStory(selected.getId()));
-                }));
+                }))
+                .exceptionally(throwable -> {
+                    Platform.runLater(() -> {
+                        logger.error("Failed to load stories", throwable);
+                        com.boilerplate.app.util.ErrorHandler.showError(
+                            "Load Failed",
+                            "Failed to load saved stories",
+                            "An error occurred while loading stories from the database.",
+                            throwable
+                        );
+                    });
+                    return null;
+                });
     }
 
     private void loadFullStory(int id) {
@@ -359,13 +394,27 @@ public class MainController {
     }
 
     // === PDF ===
+    private final PdfGenerationService pdfGenerationService = new PdfGenerationService();
 
     @FXML
     private void handleGeneratePdf() {
         if (currentStory == null) {
-            showError("No story loaded!");
+            com.boilerplate.app.util.ErrorHandler.showError(
+                "No Story Loaded",
+                "Cannot generate PDF",
+                "Please extract or load a story first."
+            );
             return;
         }
+        
+        if (pdfGenerationService.isRunning()) {
+            com.boilerplate.app.util.ErrorHandler.showWarning(
+                "PDF Generation in Progress",
+                "A PDF is already being generated. Please wait for it to complete."
+            );
+            return;
+        }
+        
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Save PDF As");
         fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PDF Files", "*.pdf"));
@@ -373,31 +422,58 @@ public class MainController {
 
         File file = fileChooser.showSaveDialog(statusLabel.getScene().getWindow());
         if (file != null) {
-            updateStatus("Generating PDF...");
-            new Thread(() -> {
-                try {
-                    jasperPdfService.exportToPdf(currentStory, file.getAbsolutePath(), currentTemplate);
-                    Platform.runLater(() -> updateStatus("✅ Saved PDF: " + file.getName()));
-                } catch (Exception e) {
-                    Platform.runLater(() -> showError("Error: " + e.getMessage()));
+            // Setup PDF generation service
+            pdfGenerationService.setStory(currentStory);
+            pdfGenerationService.setOutputFile(file);
+            pdfGenerationService.setTemplate(currentTemplate);
+            
+            pdfGenerationService.setOnSucceeded(e -> {
+                updateStatus("✅ Saved PDF: " + file.getName());
+                com.boilerplate.app.util.ErrorHandler.showInfo(
+                    "PDF Generated",
+                    "PDF successfully saved to:\n" + file.getAbsolutePath()
+                );
+            });
+            
+            pdfGenerationService.setOnFailed(e -> {
+                Throwable exception = pdfGenerationService.getException();
+                logger.error("PDF generation failed", exception);
+                com.boilerplate.app.util.ErrorHandler.showError(
+                    "PDF Generation Failed",
+                    "Failed to generate PDF",
+                    "An error occurred while generating the PDF. Please check the story content and try again.",
+                    exception
+                );
+                updateStatus("❌ PDF generation failed");
+            });
+            
+            pdfGenerationService.messageProperty().addListener((obs, oldMsg, newMsg) -> {
+                if (newMsg != null) {
+                    updateStatus(newMsg);
                 }
-            }).start();
+            });
+            
+            pdfGenerationService.restart();
         }
     }
 
     @FXML
     private void handlePreviewPdf() {
-        if (currentStory == null)
+        if (currentStory == null) {
+            com.boilerplate.app.util.ErrorHandler.showError(
+                "No Story Loaded",
+                "Cannot preview PDF",
+                "Please extract or load a story first."
+            );
             return;
+        }
+        
         updateStatus("Generating Preview...");
-        new Thread(() -> {
-            try {
-                jasperPdfService.viewPdf(currentStory, currentTemplate);
-                Platform.runLater(() -> updateStatus("✅ Preview Launched"));
-            } catch (Exception e) {
-                Platform.runLater(() -> showError("Error: " + e.getMessage()));
-            }
-        }).start();
+        runBackgroundAction(
+            () -> jasperPdfService.viewPdf(currentStory, currentTemplate),
+            () -> updateStatus("✅ Preview Launched"),
+            "Error generating preview"
+        );
     }
 
     // Background helpers

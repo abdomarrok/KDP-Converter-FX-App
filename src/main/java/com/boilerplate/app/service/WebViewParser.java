@@ -11,14 +11,6 @@ import netscape.javascript.JSObject;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -48,33 +40,7 @@ public class WebViewParser {
     private ChangeListener<Worker.State> currentListener = null;
 
     // === IMAGE CACHING (Solves CORS issues) ===
-    private static final Path CACHE_DIR = Paths.get(
-            System.getProperty("java.io.tmpdir"),
-            "storyforge-cache");
-
-    static {
-        try {
-            Files.createDirectories(CACHE_DIR);
-            logger.info("Image cache initialized: {}", CACHE_DIR);
-
-            // Cleanup on shutdown
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                try {
-                    if (Files.exists(CACHE_DIR)) {
-                        Files.walk(CACHE_DIR)
-                                .sorted(Comparator.reverseOrder())
-                                .map(Path::toFile)
-                                .forEach(java.io.File::delete);
-                        logger.info("Image cache cleaned up");
-                    }
-                } catch (Exception e) {
-                    // Ignore cleanup errors
-                }
-            }));
-        } catch (Exception e) {
-            logger.error("Failed to create cache directory: {}", e.getMessage());
-        }
-    }
+    // Using ImageCacheService.getInstance() directly where needed
 
     /**
      * Parse the currently loaded page in the WebEngine.
@@ -492,44 +458,6 @@ public class WebViewParser {
                 """;
     }
 
-    /**
-     * Downloads an image from a URL and caches it locally.
-     * Returns file:// URL to cached image, or null if download fails.
-     */
-    private static String downloadAndCacheImage(String imageUrl) {
-        if (imageUrl == null || imageUrl.isEmpty())
-            return null;
-
-        try {
-            String filename = Math.abs(imageUrl.hashCode()) + ".png";
-            Path cachedFile = CACHE_DIR.resolve(filename);
-
-            if (Files.exists(cachedFile) && Files.size(cachedFile) > 0) {
-                return cachedFile.toUri().toString();
-            }
-
-            logger.info("Downloading: {}", imageUrl.substring(0, Math.min(60, imageUrl.length())));
-
-            URL url = new URI(imageUrl).toURL();
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0");
-            conn.setRequestProperty("Referer", "https://gemini.google.com/");
-            conn.setConnectTimeout(10000);
-            conn.setReadTimeout(10000);
-
-            try (InputStream in = conn.getInputStream();
-                    OutputStream out = Files.newOutputStream(cachedFile)) {
-                in.transferTo(out);
-            }
-
-            logger.info("Cached: {} ({} bytes)", filename, Files.size(cachedFile));
-            return cachedFile.toUri().toString();
-
-        } catch (Exception e) {
-            logger.error("Download failed: {}", e.getMessage());
-            return null;
-        }
-    }
 
     /**
      * Deduplicates scenes on the Java side for additional safety.
@@ -634,7 +562,8 @@ public class WebViewParser {
 
                         for (Scene scene : scenesWithImages) {
                             futures.add(executor.submit(() -> {
-                                String cachedUrl = downloadAndCacheImage(scene.getImageUrl());
+                                // Use ImageCacheService directly since we're in a static inner class
+                                String cachedUrl = ImageCacheService.getInstance().downloadAndCache(scene.getImageUrl());
                                 if (cachedUrl != null) {
                                     scene.setImageUrl(cachedUrl);
                                 } else {

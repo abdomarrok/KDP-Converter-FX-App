@@ -32,5 +32,8 @@ module com.boilerplate.app {
 
     opens com.boilerplate.app.model to javafx.base; // Allow PropertyValueFactory
 
+    exports com.boilerplate.app.service;
+    exports com.boilerplate.app.util;
+
     opens com.boilerplate.app.service to javafx.web; // Allow JavaBridge access
 }

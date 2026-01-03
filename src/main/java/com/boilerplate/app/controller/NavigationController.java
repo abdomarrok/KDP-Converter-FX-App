@@ -1,6 +1,8 @@
 package com.boilerplate.app.controller;
 
 import com.boilerplate.app.service.StoryService;
+import com.boilerplate.app.util.ErrorHandler;
+import com.boilerplate.app.util.UrlValidator;
 import javafx.fxml.FXML;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
@@ -42,29 +44,49 @@ public class NavigationController {
 
     @FXML
     public void handleLoadUrl() {
-        String url = urlField.getText();
-        if (url == null || url.isBlank()) {
-            mainController.showError("Please enter a URL");
+        String urlInput = urlField.getText();
+        if (urlInput == null || urlInput.isBlank()) {
+            ErrorHandler.showError(
+                "Invalid URL",
+                "Please enter a URL",
+                "The URL field cannot be empty."
+            );
             return;
         }
 
-        if (!url.contains("gemini.google.com")) {
-            logger.warn("Non-Gemini URL: {}", url);
-            mainController.updateStatus("⚠️ Warning: Non-Gemini URL");
-        } else {
-            mainController.updateStatus("Loading: " + url);
+        // Normalize and validate URL
+        String normalizedUrl = UrlValidator.normalizeUrl(urlInput);
+        if (normalizedUrl == null) {
+            ErrorHandler.showError(
+                "Invalid URL",
+                "The URL format is invalid",
+                "Please enter a valid URL starting with http:// or https://"
+            );
+            return;
         }
 
-        logger.info("Loading URL: {}", url);
+        // Warn if not a Gemini URL
+        if (!UrlValidator.isGeminiUrl(normalizedUrl)) {
+            boolean proceed = ErrorHandler.showConfirmation(
+                "Non-Gemini URL",
+                "This doesn't appear to be a Gemini URL. Continue anyway?"
+            );
+            if (!proceed) {
+                return;
+            }
+            logger.warn("Non-Gemini URL: {}", normalizedUrl);
+        }
+
+        mainController.updateStatus("Loading: " + normalizedUrl);
+        logger.info("Loading URL: {}", normalizedUrl);
 
         // Save history to DB
         mainController.runBackgroundAction(
-                () -> storyService.saveLastUrl(urlField.getText()),
-                () -> {
-                },
+                () -> storyService.saveLastUrl(normalizedUrl),
+                () -> logger.debug("URL saved to history"),
                 "Error saving history");
 
-        mainController.loadUrlInBrowser(url);
+        mainController.loadUrlInBrowser(normalizedUrl);
     }
 
     @FXML
