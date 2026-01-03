@@ -1,57 +1,255 @@
-/* Goal App "Indigo" Theme */
+/* StoryForge - Modern Editor Theme */
+
+/* === Color Variables === */
 .root {
-    -color-primary: #4f46e5; /* Indigo 600 */
-    -color-primary-fg: #ffffff;
-    -color-bg-default: #f9fafb; /* Gray 50 */
-    -color-bg-subtle: #f3f4f6; /* Gray 100 */
-    -fx-base: -color-bg-default;
-    -fx-background-color: -color-bg-default;
+  -color-primary: #4f46e5; /* Indigo 600 */
+  -color-primary-hover: #4338ca; /* Indigo 700 */
+  -color-accent: #3b82f6; /* Blue 500 */
+  -color-success: #10b981; /* Emerald 500 */
+  -color-danger: #ef4444; /* Red 500 */
+  -color-warning: #f59e0b; /* Amber 500 */
+  -color-bg: #f9fafb; /* Gray 50 */
+  -color-bg-subtle: #f3f4f6; /* Gray 100 */
+  -color-border: #e5e7eb; /* Gray 200 */
+  -color-text: #111827; /* Gray 900 */
+  -color-text-muted: #6b7280; /* Gray 500 */
+  -fx-base: -color-bg;
+  -fx-background-color: -color-bg;
 }
 
-.title-label {
-    -fx-font-size: 24px;
-    -fx-font-weight: bold;
-    -fx-text-fill: -color-primary;
-    -fx-font-family: "Segoe UI", sans-serif;
+/* === Header Bar === */
+.header-bar {
+  -fx-background-color: white;
+  -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.08), 8, 0, 0, 2);
 }
 
-/* Button Styling matching Tailwind buttons */
+.app-title {
+  -fx-font-size: 22px;
+  -fx-font-weight: bold;
+  -fx-text-fill: -color-primary;
+  -fx-font-family: "Segoe UI", sans-serif;
+}
+
+/* === Footer Bar === */
+.footer-bar {
+  -fx-background-color: white;
+  -fx-border-color: -color-border;
+  -fx-border-width: 1 0 0 0;
+}
+
+/* === Panels === */
+.panel {
+  -fx-background-color: white;
+  -fx-border-color: -color-border;
+  -fx-border-width: 0 1 0 0;
+}
+
+.panel-header {
+  -fx-padding: 12 15;
+  -fx-background-color: -color-bg-subtle;
+  -fx-border-color: -color-border;
+  -fx-border-width: 0 0 1 0;
+}
+
+.panel-title {
+  -fx-font-size: 14px;
+  -fx-font-weight: bold;
+  -fx-text-fill: -color-text;
+}
+
+.panel-footer {
+  -fx-padding: 8 10;
+  -fx-background-color: -color-bg-subtle;
+  -fx-border-color: -color-border;
+  -fx-border-width: 1 0 0 0;
+}
+
+/* === Template Panel === */
+.template-panel {
+  -fx-padding: 12 15;
+  -fx-background-color: -color-bg-subtle;
+}
+
+/* === Buttons === */
 .button {
-    -fx-background-color: -color-primary;
-    -fx-text-fill: -color-primary-fg;
-    -fx-font-weight: bold;
-    -fx-padding: 8 16;
-    -fx-background-radius: 6;
-    -fx-cursor: hand;
+  -fx-background-color: -color-bg-subtle;
+  -fx-text-fill: -color-text;
+  -fx-font-size: 12px;
+  -fx-padding: 8 14;
+  -fx-background-radius: 6;
+  -fx-border-radius: 6;
+  -fx-border-color: -color-border;
+  -fx-cursor: hand;
 }
 
 .button:hover {
-    -fx-background-color: #4338ca; /* Indigo 700 */
+  -fx-background-color: -color-border;
 }
 
-.button:pressed {
-    -fx-background-color: #3730a3; /* Indigo 800 */
+.btn-primary {
+  -fx-background-color: -color-primary;
+  -fx-text-fill: white;
+  -fx-font-weight: bold;
+  -fx-border-color: transparent;
 }
 
+.btn-primary:hover {
+  -fx-background-color: -color-primary-hover;
+}
+
+.btn-accent {
+  -fx-background-color: -color-accent;
+  -fx-text-fill: white;
+  -fx-border-color: transparent;
+}
+
+.btn-accent:hover {
+  -fx-background-color: #2563eb;
+}
+
+.btn-success {
+  -fx-background-color: -color-success;
+  -fx-text-fill: white;
+  -fx-font-weight: bold;
+  -fx-border-color: transparent;
+}
+
+.btn-success:hover {
+  -fx-background-color: #059669;
+}
+
+.btn-small {
+  -fx-padding: 4 8;
+  -fx-font-size: 11px;
+}
+
+/* === Text Fields === */
 .text-field {
-    -fx-background-radius: 6;
-    -fx-padding: 8;
-    -fx-border-color: #d1d5db; /* Gray 300 */
-    -fx-border-radius: 6;
+  -fx-background-radius: 6;
+  -fx-padding: 10 12;
+  -fx-border-color: -color-border;
+  -fx-border-radius: 6;
+  -fx-font-size: 13px;
 }
 
 .text-field:focused {
-    -fx-border-color: -color-primary;
-    -fx-border-width: 2;
+  -fx-border-color: -color-primary;
+  -fx-border-width: 2;
 }
 
-.separator .line {
-    -fx-border-color: #e5e7eb; /* Gray 200 */
-    -fx-border-width: 1;
+/* === Text Area === */
+.text-area {
+  -fx-background-radius: 6;
+  -fx-border-radius: 6;
+  -fx-border-color: -color-border;
 }
 
+.text-area:focused {
+  -fx-border-color: -color-primary;
+}
+
+.text-area .content {
+  -fx-background-color: white;
+  -fx-padding: 10;
+}
+
+/* === Combo Box === */
+.combo-box {
+  -fx-background-radius: 6;
+  -fx-border-radius: 6;
+  -fx-border-color: -color-border;
+  -fx-padding: 4 8;
+}
+
+/* === List View === */
 .list-view {
-    -fx-background-color: transparent;
-    -fx-border-color: #e5e7eb;
-    -fx-border-radius: 6;
+  -fx-background-color: white;
+  -fx-border-color: transparent;
+}
+
+.list-view .list-cell {
+  -fx-background-color: transparent;
+  -fx-padding: 8 12;
+  -fx-border-color: -color-border;
+  -fx-border-width: 0 0 1 0;
+}
+
+.list-view .list-cell:selected {
+  -fx-background-color: #eef2ff; /* Indigo 50 */
+}
+
+.list-view .list-cell:selected:focused {
+  -fx-background-color: #e0e7ff; /* Indigo 100 */
+}
+
+.scene-list {
+  -fx-background-insets: 0;
+}
+
+/* === Empty State === */
+.empty-state {
+  -fx-padding: 40;
+}
+
+.empty-state .label {
+  -fx-text-fill: -color-text-muted;
+}
+
+/* === Editor === */
+.editor-scroll {
+  -fx-background-color: white;
+}
+
+.image-preview-container {
+  -fx-background-color: -color-bg-subtle;
+  -fx-border-color: -color-border;
+  -fx-border-radius: 8;
+  -fx-background-radius: 8;
+  -fx-padding: 10;
+}
+
+/* === Toggle Button === */
+.toggle-button {
+  -fx-background-color: -color-bg-subtle;
+  -fx-border-color: -color-border;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+  -fx-padding: 6 12;
+}
+
+.toggle-button:selected {
+  -fx-background-color: -color-primary;
+  -fx-text-fill: white;
+  -fx-border-color: -color-primary;
+}
+
+/* === Spinner === */
+.spinner {
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+}
+
+/* === Separator === */
+.separator .line {
+  -fx-border-color: -color-border;
+  -fx-border-width: 1;
+}
+
+/* === Split Pane === */
+.split-pane {
+  -fx-background-color: -color-bg;
+}
+
+.split-pane > .split-pane-divider {
+  -fx-background-color: -color-border;
+  -fx-padding: 0 2;
+}
+
+/* === Scroll Pane === */
+.scroll-pane {
+  -fx-background-color: transparent;
+}
+
+.scroll-pane > .viewport {
+  -fx-background-color: white;
 }

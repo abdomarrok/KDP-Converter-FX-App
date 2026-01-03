@@ -5,6 +5,8 @@ module com.boilerplate.app {
     requires jdk.jsobject;
     requires org.kordamp.ikonli.javafx;
     requires org.kordamp.ikonli.fontawesome5;
+    requires org.apache.logging.log4j.core;
+    requires org.apache.logging.log4j;
     requires atlantafx.base;
     requires jasperreports;
     requires jasperreports.pdf;
@@ -12,7 +14,13 @@ module com.boilerplate.app {
     requires com.fasterxml.jackson.databind;
     requires com.fasterxml.jackson.dataformat.xml;
     requires java.sql;
+    requires com.zaxxer.hikari;
+    requires ch.vorburger.mariadb4j;
+    requires org.mariadb.jdbc;
+    requires org.slf4j;
     requires java.desktop;
+
+    opens com.boilerplate.app.util.database to com.zaxxer.hikari;
 
     opens com.boilerplate.app to javafx.fxml;
 
@@ -28,104 +36,3 @@ module com.boilerplate.app {
 
     opens com.boilerplate.app.service to javafx.web; // Allow JavaBridge access
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

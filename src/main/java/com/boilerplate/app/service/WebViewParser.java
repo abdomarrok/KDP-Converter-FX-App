@@ -8,15 +8,20 @@ import javafx.beans.value.ChangeListener;
 import javafx.concurrent.Worker;
 import javafx.scene.web.WebEngine;
 import netscape.javascript.JSObject;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
@@ -34,6 +39,7 @@ import java.util.function.Consumer;
  */
 public class WebViewParser {
 
+    private static final Logger logger = LogManager.getLogger(WebViewParser.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // === STATE MANAGEMENT (Prevents duplicate extractions) ===
@@ -49,7 +55,7 @@ public class WebViewParser {
     static {
         try {
             Files.createDirectories(CACHE_DIR);
-            System.out.println("Image cache initialized: " + CACHE_DIR);
+            logger.info("Image cache initialized: {}", CACHE_DIR);
 
             // Cleanup on shutdown
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -59,14 +65,14 @@ public class WebViewParser {
                                 .sorted(Comparator.reverseOrder())
                                 .map(Path::toFile)
                                 .forEach(java.io.File::delete);
-                        System.out.println("Image cache cleaned up");
+                        logger.info("Image cache cleaned up");
                     }
                 } catch (Exception e) {
                     // Ignore cleanup errors
                 }
             }));
         } catch (Exception e) {
-            System.err.println("Failed to create cache directory: " + e.getMessage());
+            logger.error("Failed to create cache directory: {}", e.getMessage());
         }
     }
 
@@ -82,12 +88,12 @@ public class WebViewParser {
             return;
         }
 
-        System.out.println("WebViewParser: Parse request received");
+        logger.info("Parse request received");
 
         // Guard against concurrent extractions
         synchronized (extractionLock) {
             if (isExtracting) {
-                System.out.println("WebViewParser: Extraction already in progress, ignoring request");
+                logger.warn("Extraction already in progress, ignoring request");
                 return;
             }
             isExtracting = true;
@@ -96,8 +102,7 @@ public class WebViewParser {
         try {
             executeExtractionAgent(webEngine, wrapCallback(onComplete));
         } catch (Exception e) {
-            System.err.println("WebViewParser: Failed to start extraction");
-            e.printStackTrace();
+            logger.error("Failed to start extraction", e);
             synchronized (extractionLock) {
                 isExtracting = false;
             }
@@ -146,7 +151,7 @@ public class WebViewParser {
         return story -> {
             synchronized (extractionLock) {
                 if (!isExtracting) {
-                    System.out.println("WebViewParser: Callback already invoked, ignoring");
+                    logger.warn("Callback already invoked, ignoring");
                     return;
                 }
                 isExtracting = false;
@@ -166,7 +171,7 @@ public class WebViewParser {
      * The JavaScript uses robust selectors and content stabilization.
      */
     private void executeExtractionAgent(WebEngine webEngine, Consumer<Story> onComplete) {
-        System.out.println("WebViewParser: Injecting extraction agent");
+        logger.info("Injecting extraction agent");
 
         // Set up Java ↔ JavaScript bridge
         JSObject window = (JSObject) webEngine.executeScript("window");
@@ -358,13 +363,28 @@ public class WebViewParser {
                         function autoScrollWithStabilization(completion) {
                             console.log("Starting smart auto-scroll...");
 
-                            var previousHeight = 0;
-                            var stableCount = 0;
-                            var STABLE_THRESHOLD = 3; // Must be stable for 3 checks
-                            var CHECK_INTERVAL = 200;  // Check every 200ms (slower to allow render)
+                            var startTime = Date.now();
+                            var CHECK_INTERVAL = 200;  // Check every 200ms
                             var SCROLL_DISTANCE = 800;
                             var MAX_TIME = 5000; // 5 second hard timeout
-                            var startTime = Date.now();
+
+                            // Initialize with current height
+                            var previousHeight = Math.max(
+                                document.body.scrollHeight,
+                                document.documentElement.scrollHeight
+                            );
+                            var stableCount = 0;
+
+                            console.log("Initial page height: " + previousHeight + "px");
+
+                            // Early bailout: if page is small and already at bottom, skip scrolling
+                            var viewportHeight = window.innerHeight;
+                            var scrollTop = Math.max(document.body.scrollTop, document.documentElement.scrollTop);
+                            if (previousHeight - scrollTop <= viewportHeight * 1.5) {
+                                console.log("Page already fully loaded, skipping scroll");
+                                completion();
+                                return;
+                            }
 
                             var timer = setInterval(function() {
                                 var elapsed = Date.now() - startTime;
@@ -375,7 +395,7 @@ public class WebViewParser {
 
                                 // Debug log every second
                                 if (Math.floor(elapsed/1000) > Math.floor((elapsed-CHECK_INTERVAL)/1000)) {
-                                    console.log("Scrolling... " + (elapsed/1000).toFixed(1) + "s, Height: " + currentHeight);
+                                    console.log("Scrolling... " + (elapsed/1000).toFixed(1) + "s, Height: " + currentHeight + "px, Stable: " + stableCount);
                                 }
 
                                 // Hard timeout safety net
@@ -488,9 +508,9 @@ public class WebViewParser {
                 return cachedFile.toUri().toString();
             }
 
-            System.out.println("Downloading: " + imageUrl.substring(0, Math.min(60, imageUrl.length())));
+            logger.info("Downloading: {}", imageUrl.substring(0, Math.min(60, imageUrl.length())));
 
-            URL url = new URL(imageUrl);
+            URL url = new URI(imageUrl).toURL();
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestProperty("User-Agent", "Mozilla/5.0");
             conn.setRequestProperty("Referer", "https://gemini.google.com/");
@@ -502,11 +522,11 @@ public class WebViewParser {
                 in.transferTo(out);
             }
 
-            System.out.println("Cached: " + filename + " (" + Files.size(cachedFile) + " bytes)");
+            logger.info("Cached: {} ({} bytes)", filename, Files.size(cachedFile));
             return cachedFile.toUri().toString();
 
         } catch (Exception e) {
-            System.err.println("Download failed: " + e.getMessage());
+            logger.error("Download failed: {}", e.getMessage());
             return null;
         }
     }
@@ -553,7 +573,7 @@ public class WebViewParser {
          * Log messages from JavaScript to Java console.
          */
         public void log(String message) {
-            System.out.println("[JS] " + message);
+            logger.info("[JS] {}", message);
         }
 
         /**
@@ -564,17 +584,17 @@ public class WebViewParser {
             // Prevent duplicate callbacks
             synchronized (this) {
                 if (callbackInvoked) {
-                    System.out.println("JavaBridge: Callback already invoked, ignoring");
+                    logger.warn("JavaBridge callback already invoked, ignoring");
                     return;
                 }
                 callbackInvoked = true;
             }
 
-            System.out.println("JavaBridge: Received story data (" + jsonData.length() + " chars)");
+            logger.info("Received story data ({} chars)", jsonData.length());
 
             // Validate input
             if (jsonData == null || jsonData.trim().isEmpty()) {
-                System.err.println("JavaBridge: Empty JSON received");
+                logger.error("Empty JSON received");
                 return;
             }
 
@@ -589,29 +609,66 @@ public class WebViewParser {
 
                 // Ensure scenes list exists
                 if (story.getScenes() == null) {
-                    System.out.println("JavaBridge: No scenes in story, initializing empty list");
+                    logger.info("No scenes in story, initializing empty list");
                     story.setScenes(new ArrayList<>());
                 } else {
                     story.setScenes(deduplicateScenes(story.getScenes()));
                 }
 
-                System.out.println("JavaBridge: Parsed story '" + story.getTitle() + "' with " +
-                        story.getScenes().size() + " scenes");
+                logger.info("Parsed story '{}' with {} scenes", story.getTitle(), story.getScenes().size());
 
-                // Download and cache images
-                int imageCount = 0;
-                for (Scene scene : story.getScenes()) {
-                    if (scene.getImageUrl() != null && !scene.getImageUrl().isEmpty()) {
-                        String cachedUrl = downloadAndCacheImage(scene.getImageUrl());
-                        if (cachedUrl != null) {
-                            scene.setImageUrl(cachedUrl);
-                            imageCount++;
-                        } else {
-                            scene.setImageUrl(null);
+                // Download and cache images in parallel
+                List<Scene> scenesWithImages = story.getScenes().stream()
+                        .filter(s -> s.getImageUrl() != null && !s.getImageUrl().isEmpty())
+                        .toList();
+
+                if (!scenesWithImages.isEmpty()) {
+                    logger.info("Downloading {} images in parallel...", scenesWithImages.size());
+                    ExecutorService executor = Executors.newFixedThreadPool(
+                            Math.min(4, scenesWithImages.size())); // Max 4 concurrent downloads
+
+                    try {
+                        List<Future<Void>> futures = new ArrayList<>();
+                        AtomicInteger completedCount = new AtomicInteger(0);
+                        int totalImages = scenesWithImages.size();
+
+                        for (Scene scene : scenesWithImages) {
+                            futures.add(executor.submit(() -> {
+                                String cachedUrl = downloadAndCacheImage(scene.getImageUrl());
+                                if (cachedUrl != null) {
+                                    scene.setImageUrl(cachedUrl);
+                                } else {
+                                    scene.setImageUrl(null);
+                                }
+                                int completed = completedCount.incrementAndGet();
+                                logger.info("Image download progress: {}/{}", completed, totalImages);
+                                return null;
+                            }));
                         }
+
+                        // Wait for all downloads to complete
+                        for (Future<Void> future : futures) {
+                            try {
+                                future.get(30, TimeUnit.SECONDS); // 30s timeout per image
+                            } catch (TimeoutException e) {
+                                logger.warn("Image download timed out");
+                                future.cancel(true);
+                            }
+                        }
+
+                        long successCount = story.getScenes().stream()
+                                .filter(s -> s.getImageUrl() != null && s.getImageUrl().startsWith("file:"))
+                                .count();
+                        logger.info("Cached {} images", successCount);
+
+                    } catch (Exception e) {
+                        logger.error("Error during parallel image download", e);
+                    } finally {
+                        executor.shutdown();
                     }
+                } else {
+                    logger.info("No images to download");
                 }
-                System.out.println("JavaBridge: Cached " + imageCount + " images");
 
                 // Invoke callback on JavaFX thread
                 Story finalStory = story;
@@ -622,11 +679,9 @@ public class WebViewParser {
                 });
 
             } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-                System.err.println("JavaBridge: JSON parsing failed");
-                e.printStackTrace();
+                logger.error("JSON parsing failed", e);
             } catch (Exception e) {
-                System.err.println("JavaBridge: Unexpected error during story processing");
-                e.printStackTrace();
+                logger.error("Unexpected error during story processing", e);
             }
         }
     }

@@ -7,7 +7,17 @@ public class Story {
     private String author;
     private List<Scene> scenes;
 
+    private int id;
+
     public Story() {
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
     }
 
     public Story(String title, String author, List<Scene> scenes) {
@@ -30,6 +40,11 @@ public class Story {
 
     public void setAuthor(String author) {
         this.author = author;
+    }
+
+    @Override
+    public String toString() {
+        return title + " (" + id + ")";
     }
 
     public List<Scene> getScenes() {
