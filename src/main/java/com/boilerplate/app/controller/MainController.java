@@ -16,7 +16,6 @@ import javafx.scene.image.ImageView;
 import javafx.scene.image.Image;
 
 import java.io.File;
-import java.lang.reflect.Field;
 
 /**
  * Main Controller acting as the orchestrator.
@@ -106,48 +105,22 @@ public class MainController {
     }
 
     private void setupDelegates() {
-        // 1. Navigation Controller (Use reflection or setters to inject fields)
+        // 1. Navigation Controller
         navController = new NavigationController();
-        injectField(navController, "urlField", urlField);
-        injectField(navController, "editModeToggle", editModeToggle);
-        navController.init(this, storyService);
+        navController.init(this, storyService, urlField, editModeToggle);
 
         // 2. Scene List Controller
         sceneListController = new SceneListController();
-        injectField(sceneListController, "sceneListView", sceneListView);
-        injectField(sceneListController, "emptyState", emptyState);
-        injectField(sceneListController, "sceneCountLabel", sceneCountLabel);
-        injectField(sceneListController, "moveUpBtn", moveUpBtn);
-        injectField(sceneListController, "moveDownBtn", moveDownBtn);
-        injectField(sceneListController, "deleteSceneBtn", deleteSceneBtn);
-        sceneListController.init(this);
+        sceneListController.init(this, sceneListView, emptyState, sceneCountLabel,
+                moveUpBtn, moveDownBtn, deleteSceneBtn);
 
         // 3. Editor Controller
         editorController = new EditorController();
-        injectField(editorController, "editorPanel", editorPanel);
-        injectField(editorController, "sceneIndexLabel", sceneIndexLabel);
-        injectField(editorController, "pagePreview", pagePreview);
-        editorController.init(this);
+        editorController.init(this, editorPanel, sceneIndexLabel, pagePreview);
 
         // 4. Browser Controller
         browserController = new BrowserController();
-        injectField(browserController, "webView", webView);
-        injectField(browserController, "extractButton", extractButton);
-        // BrowserController doesn't current need the root panel, Main handles
-        // visibility
-        browserController.init(this);
-    }
-
-    // Helper to inject FXML fields into delegates since we aren't using nested FXML
-    // yet
-    private void injectField(Object target, String fieldName, Object value) {
-        try {
-            Field field = target.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
-            field.set(target, value);
-        } catch (Exception e) {
-            logger.error("Failed to inject field {} into {}", fieldName, target.getClass().getSimpleName(), e);
-        }
+        browserController.init(this, webView, extractButton);
     }
 
     private void setupTemplateControls() {
@@ -272,10 +245,9 @@ public class MainController {
         logger.error(msg);
         // Also show error dialog for critical errors
         com.boilerplate.app.util.ErrorHandler.showError(
-            "Error",
-            "An error occurred",
-            msg
-        );
+                "Error",
+                "An error occurred",
+                msg);
     }
 
     public void loadUrlInBrowser(String url) {
@@ -331,10 +303,9 @@ public class MainController {
     private void handleSaveStory() {
         if (currentStory == null) {
             com.boilerplate.app.util.ErrorHandler.showError(
-                "No Story to Save",
-                "Cannot save story",
-                "Please extract or load a story first."
-            );
+                    "No Story to Save",
+                    "Cannot save story",
+                    "Please extract or load a story first.");
             return;
         }
         updateStatus("Saving to database...");
@@ -346,9 +317,8 @@ public class MainController {
                 (res) -> {
                     updateStatus("✅ Saved: " + currentStory.getTitle());
                     com.boilerplate.app.util.ErrorHandler.showInfo(
-                        "Story Saved",
-                        "Story '" + currentStory.getTitle() + "' has been saved successfully."
-                    );
+                            "Story Saved",
+                            "Story '" + currentStory.getTitle() + "' has been saved successfully.");
                 },
                 "Error saving story");
     }
@@ -360,9 +330,8 @@ public class MainController {
                 .thenAccept(stories -> Platform.runLater(() -> {
                     if (stories.isEmpty()) {
                         com.boilerplate.app.util.ErrorHandler.showInfo(
-                            "No Stories Found",
-                            "No saved stories found. Extract a story first to save it."
-                        );
+                                "No Stories Found",
+                                "No saved stories found. Extract a story first to save it.");
                         return;
                     }
                     ChoiceDialog<Story> dialog = new ChoiceDialog<>(stories.get(0), stories);
@@ -374,11 +343,10 @@ public class MainController {
                     Platform.runLater(() -> {
                         logger.error("Failed to load stories", throwable);
                         com.boilerplate.app.util.ErrorHandler.showError(
-                            "Load Failed",
-                            "Failed to load saved stories",
-                            "An error occurred while loading stories from the database.",
-                            throwable
-                        );
+                                "Load Failed",
+                                "Failed to load saved stories",
+                                "An error occurred while loading stories from the database.",
+                                throwable);
                     });
                     return null;
                 });
@@ -400,21 +368,19 @@ public class MainController {
     private void handleGeneratePdf() {
         if (currentStory == null) {
             com.boilerplate.app.util.ErrorHandler.showError(
-                "No Story Loaded",
-                "Cannot generate PDF",
-                "Please extract or load a story first."
-            );
+                    "No Story Loaded",
+                    "Cannot generate PDF",
+                    "Please extract or load a story first.");
             return;
         }
-        
+
         if (pdfGenerationService.isRunning()) {
             com.boilerplate.app.util.ErrorHandler.showWarning(
-                "PDF Generation in Progress",
-                "A PDF is already being generated. Please wait for it to complete."
-            );
+                    "PDF Generation in Progress",
+                    "A PDF is already being generated. Please wait for it to complete.");
             return;
         }
-        
+
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Save PDF As");
         fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PDF Files", "*.pdf"));
@@ -426,33 +392,31 @@ public class MainController {
             pdfGenerationService.setStory(currentStory);
             pdfGenerationService.setOutputFile(file);
             pdfGenerationService.setTemplate(currentTemplate);
-            
+
             pdfGenerationService.setOnSucceeded(e -> {
                 updateStatus("✅ Saved PDF: " + file.getName());
                 com.boilerplate.app.util.ErrorHandler.showInfo(
-                    "PDF Generated",
-                    "PDF successfully saved to:\n" + file.getAbsolutePath()
-                );
+                        "PDF Generated",
+                        "PDF successfully saved to:\n" + file.getAbsolutePath());
             });
-            
+
             pdfGenerationService.setOnFailed(e -> {
                 Throwable exception = pdfGenerationService.getException();
                 logger.error("PDF generation failed", exception);
                 com.boilerplate.app.util.ErrorHandler.showError(
-                    "PDF Generation Failed",
-                    "Failed to generate PDF",
-                    "An error occurred while generating the PDF. Please check the story content and try again.",
-                    exception
-                );
+                        "PDF Generation Failed",
+                        "Failed to generate PDF",
+                        "An error occurred while generating the PDF. Please check the story content and try again.",
+                        exception);
                 updateStatus("❌ PDF generation failed");
             });
-            
+
             pdfGenerationService.messageProperty().addListener((obs, oldMsg, newMsg) -> {
                 if (newMsg != null) {
                     updateStatus(newMsg);
                 }
             });
-            
+
             pdfGenerationService.restart();
         }
     }
@@ -461,19 +425,17 @@ public class MainController {
     private void handlePreviewPdf() {
         if (currentStory == null) {
             com.boilerplate.app.util.ErrorHandler.showError(
-                "No Story Loaded",
-                "Cannot preview PDF",
-                "Please extract or load a story first."
-            );
+                    "No Story Loaded",
+                    "Cannot preview PDF",
+                    "Please extract or load a story first.");
             return;
         }
-        
+
         updateStatus("Generating Preview...");
         runBackgroundAction(
-            () -> jasperPdfService.viewPdf(currentStory, currentTemplate),
-            () -> updateStatus("✅ Preview Launched"),
-            "Error generating preview"
-        );
+                () -> jasperPdfService.viewPdf(currentStory, currentTemplate),
+                () -> updateStatus("✅ Preview Launched"),
+                "Error generating preview");
     }
 
     // Background helpers

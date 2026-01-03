@@ -33,8 +33,15 @@ public class SceneListController {
 
     private MainController mainController;
 
-    public void init(MainController main) {
+    public void init(MainController main, ListView<Scene> listView, VBox emptyState,
+            Label countLabel, Button upBtn, Button downBtn, Button delBtn) {
         this.mainController = main;
+        this.sceneListView = listView;
+        this.emptyState = emptyState;
+        this.sceneCountLabel = countLabel;
+        this.moveUpBtn = upBtn;
+        this.moveDownBtn = downBtn;
+        this.deleteSceneBtn = delBtn;
 
         sceneListView.setCellFactory(param -> new SceneListCell());
         sceneListView.getSelectionModel().selectedItemProperty().addListener(

@@ -1,5 +1,6 @@
 package com.boilerplate.app.repository;
 
+import com.boilerplate.app.service.ConfigService;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.apache.logging.log4j.LogManager;
@@ -16,12 +17,6 @@ import java.sql.Statement;
 public class DatabaseConnection {
     private static final Logger logger = LogManager.getLogger(DatabaseConnection.class);
 
-    private static String DATABASE_NAME = "storyforge";
-    private static String DATABASE_HOST = "localhost";
-    private static int DATABASE_PORT = 3306;
-    private static String DATABASE_USER = "root";
-    private static String DATABASE_PASS = "";
-
     private static HikariDataSource dataSource;
     private static DatabaseConnection instance;
 
@@ -30,26 +25,24 @@ public class DatabaseConnection {
         createTablesIfNotExist();
     }
 
-    /**
-     * Configure database connection parameters before initialization.
-     */
-    public static void configure(String host, int port, String dbName, String user, String pass) {
-        DATABASE_HOST = host;
-        DATABASE_PORT = port;
-        DATABASE_NAME = dbName;
-        DATABASE_USER = user;
-        DATABASE_PASS = pass;
-    }
+    // NOTE: configure() method removed as it's no longer needed with ConfigService
 
     private void initializePool() {
+        ConfigService configService = ConfigService.getInstance();
         HikariConfig config = new HikariConfig();
+
+        String host = configService.getDbHost();
+        int port = configService.getDbPort();
+        String dbName = configService.getDbName();
+        String user = configService.getDbUser();
+        String pass = configService.getDbPassword();
+
         // JDBC URL for MariaDB
-        String jdbcUrl = String.format("jdbc:mariadb://%s:%d/%s",
-                DATABASE_HOST, DATABASE_PORT, DATABASE_NAME);
+        String jdbcUrl = String.format("jdbc:mariadb://%s:%d/%s", host, port, dbName);
 
         config.setJdbcUrl(jdbcUrl);
-        config.setUsername(DATABASE_USER);
-        config.setPassword(DATABASE_PASS);
+        config.setUsername(user);
+        config.setPassword(pass);
 
         // Pool settings
         config.setMaximumPoolSize(10);

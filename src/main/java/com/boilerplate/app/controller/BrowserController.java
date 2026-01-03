@@ -24,28 +24,29 @@ public class BrowserController {
     private MainController mainController;
     private final ExtractionService extractionService = new ExtractionService();
 
-    public void init(MainController main) {
+    public void init(MainController main, WebView webView, Button extractBtn) {
         this.mainController = main;
-        
+        this.webView = webView;
+        this.extractButton = extractBtn;
+
         // Setup extraction service handlers
         extractionService.setOnSucceeded(e -> {
             extractButton.setDisable(false);
             mainController.handleExtractionResult(extractionService.getValue());
         });
-        
+
         extractionService.setOnFailed(e -> {
             extractButton.setDisable(false);
             Throwable exception = extractionService.getException();
             logger.error("Extraction failed", exception);
             ErrorHandler.showError(
-                "Extraction Failed",
-                "Failed to extract story from page",
-                "An error occurred while extracting the story. Please ensure the page is fully loaded and try again.",
-                exception
-            );
+                    "Extraction Failed",
+                    "Failed to extract story from page",
+                    "An error occurred while extracting the story. Please ensure the page is fully loaded and try again.",
+                    exception);
             mainController.updateStatus("❌ Extraction failed");
         });
-        
+
         extractionService.setOnCancelled(e -> {
             extractButton.setDisable(false);
             mainController.updateStatus("Extraction cancelled");
@@ -58,11 +59,10 @@ public class BrowserController {
         } catch (Exception e) {
             logger.error("Failed to load URL", e);
             ErrorHandler.showError(
-                "Load Failed",
-                "Failed to load URL",
-                "Could not load the specified URL. Please check the URL and try again.",
-                e
-            );
+                    "Load Failed",
+                    "Failed to load URL",
+                    "Could not load the specified URL. Please check the URL and try again.",
+                    e);
         }
     }
 
@@ -72,11 +72,10 @@ public class BrowserController {
         } catch (Exception e) {
             logger.error("Failed to refresh", e);
             ErrorHandler.showError(
-                "Refresh Failed",
-                "Failed to refresh page",
-                "Could not refresh the current page.",
-                e
-            );
+                    "Refresh Failed",
+                    "Failed to refresh page",
+                    "Could not refresh the current page.",
+                    e);
         }
     }
 
@@ -84,27 +83,25 @@ public class BrowserController {
     public void handleExtract() {
         if (webView.getEngine().getLocation() == null || webView.getEngine().getLocation().isEmpty()) {
             ErrorHandler.showError(
-                "No URL Loaded",
-                "Cannot extract story",
-                "Please load a URL first before attempting extraction."
-            );
+                    "No URL Loaded",
+                    "Cannot extract story",
+                    "Please load a URL first before attempting extraction.");
             return;
         }
 
         if (extractionService.isRunning()) {
             ErrorHandler.showWarning(
-                "Extraction in Progress",
-                "An extraction is already in progress. Please wait for it to complete."
-            );
+                    "Extraction in Progress",
+                    "An extraction is already in progress. Please wait for it to complete.");
             return;
         }
 
         mainController.updateStatus("Starting extraction...");
         extractButton.setDisable(true);
-        
+
         extractionService.setWebEngine(webView.getEngine());
         extractionService.restart();
-        
+
         // Update status based on service message
         extractionService.messageProperty().addListener((obs, oldMsg, newMsg) -> {
             if (newMsg != null) {
@@ -112,7 +109,7 @@ public class BrowserController {
             }
         });
     }
-    
+
     public void cancelExtraction() {
         if (extractionService.isRunning()) {
             extractionService.cancel();

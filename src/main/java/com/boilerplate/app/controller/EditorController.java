@@ -44,8 +44,11 @@ public class EditorController {
     private Scene currentScene;
     private KdpTemplate currentTemplate; // To track current layout
 
-    public void init(MainController main) {
+    public void init(MainController main, VBox panel, Label indexLabel, StackPane preview) {
         this.mainController = main;
+        this.editorPanel = panel;
+        this.sceneIndexLabel = indexLabel;
+        this.pagePreview = preview;
         setupComponents();
     }
 

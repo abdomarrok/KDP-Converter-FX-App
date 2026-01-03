@@ -24,9 +24,11 @@ public class NavigationController {
     private MainController mainController;
     private StoryService storyService;
 
-    public void init(MainController main, StoryService service) {
+    public void init(MainController main, StoryService service, TextField urlField, ToggleButton editModeToggle) {
         this.mainController = main;
         this.storyService = service;
+        this.urlField = urlField;
+        this.editModeToggle = editModeToggle;
         loadHistory();
     }
 
@@ -47,10 +49,9 @@ public class NavigationController {
         String urlInput = urlField.getText();
         if (urlInput == null || urlInput.isBlank()) {
             ErrorHandler.showError(
-                "Invalid URL",
-                "Please enter a URL",
-                "The URL field cannot be empty."
-            );
+                    "Invalid URL",
+                    "Please enter a URL",
+                    "The URL field cannot be empty.");
             return;
         }
 
@@ -58,19 +59,17 @@ public class NavigationController {
         String normalizedUrl = UrlValidator.normalizeUrl(urlInput);
         if (normalizedUrl == null) {
             ErrorHandler.showError(
-                "Invalid URL",
-                "The URL format is invalid",
-                "Please enter a valid URL starting with http:// or https://"
-            );
+                    "Invalid URL",
+                    "The URL format is invalid",
+                    "Please enter a valid URL starting with http:// or https://");
             return;
         }
 
         // Warn if not a Gemini URL
         if (!UrlValidator.isGeminiUrl(normalizedUrl)) {
             boolean proceed = ErrorHandler.showConfirmation(
-                "Non-Gemini URL",
-                "This doesn't appear to be a Gemini URL. Continue anyway?"
-            );
+                    "Non-Gemini URL",
+                    "This doesn't appear to be a Gemini URL. Continue anyway?");
             if (!proceed) {
                 return;
             }
