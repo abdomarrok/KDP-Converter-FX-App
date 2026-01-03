@@ -29,11 +29,11 @@ public class App extends Application {
         return fxmlLoader.load();
     }
 
-    private static com.boilerplate.app.util.database.EmbeddedDatabase db;
+    private static com.boilerplate.app.repository.EmbeddedDatabase db;
 
     @Override
     public void init() throws Exception {
-        db = new com.boilerplate.app.util.database.EmbeddedDatabase();
+        db = new com.boilerplate.app.repository.EmbeddedDatabase();
         db.startDatabase();
     }
 
@@ -42,7 +42,7 @@ public class App extends Application {
         if (db != null) {
             db.stopDatabase();
         }
-        com.boilerplate.app.util.database.DatabaseConnection.shutdown();
+        com.boilerplate.app.repository.DatabaseConnection.shutdown();
     }
 
     public static void main(String[] args) {

@@ -47,6 +47,30 @@ public class Story {
         return title + " (" + id + ")";
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+
+        Story story = (Story) o;
+
+        if (id != story.id)
+            return false;
+        if (title != null ? !title.equals(story.title) : story.title != null)
+            return false;
+        return author != null ? author.equals(story.author) : story.author == null;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = title != null ? title.hashCode() : 0;
+        result = 31 * result + (author != null ? author.hashCode() : 0);
+        result = 31 * result + id;
+        return result;
+    }
+
     public List<Scene> getScenes() {
         return scenes;
     }

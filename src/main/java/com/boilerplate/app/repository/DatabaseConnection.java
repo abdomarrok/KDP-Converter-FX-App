@@ -1,4 +1,4 @@
-package com.boilerplate.app.util.database;
+package com.boilerplate.app.repository;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;

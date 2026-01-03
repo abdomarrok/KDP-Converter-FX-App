@@ -20,8 +20,6 @@ module com.boilerplate.app {
     requires org.slf4j;
     requires java.desktop;
 
-    opens com.boilerplate.app.util.database to com.zaxxer.hikari;
-
     opens com.boilerplate.app to javafx.fxml;
 
     exports com.boilerplate.app;
