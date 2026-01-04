@@ -46,11 +46,28 @@ public class WebViewParser {
      * Parse the currently loaded page in the WebEngine.
      * Thread-safe: Can be called from any thread.
      * Idempotent: Ignores requests if extraction already in progress.
+     * 
+     * @param webEngine  The WebEngine to parse
+     * @param onComplete Callback invoked when extraction completes
      */
     public void parseCurrentPage(WebEngine webEngine, Consumer<Story> onComplete) {
+        parseCurrentPage(webEngine, onComplete, null);
+    }
+
+    /**
+     * Parse the currently loaded page in the WebEngine with a refresh callback.
+     * Thread-safe: Can be called from any thread.
+     * Idempotent: Ignores requests if extraction already in progress.
+     * 
+     * @param webEngine  The WebEngine to parse
+     * @param onComplete Callback invoked when extraction completes
+     * @param onRefresh  Callback invoked after background image downloads complete
+     *                   (optional), receives updated story
+     */
+    public void parseCurrentPage(WebEngine webEngine, Consumer<Story> onComplete, Consumer<Story> onRefresh) {
         // Ensure we're on JavaFX Application Thread
         if (!Platform.isFxApplicationThread()) {
-            Platform.runLater(() -> parseCurrentPage(webEngine, onComplete));
+            Platform.runLater(() -> parseCurrentPage(webEngine, onComplete, onRefresh));
             return;
         }
 
@@ -69,7 +86,7 @@ public class WebViewParser {
         }
 
         try {
-            executeExtractionAgent(webEngine, wrapCallback(onComplete));
+            executeExtractionAgent(webEngine, wrapCallback(onComplete), onComplete, onRefresh);
         } catch (Exception e) {
             logger.error("Failed to start extraction", e);
             synchronized (extractionLock) {
@@ -102,7 +119,7 @@ public class WebViewParser {
                 currentListener = null;
 
                 // Start extraction
-                parseCurrentPage(webEngine, onComplete);
+                parseCurrentPage(webEngine, onComplete, null);
             }
         };
 
@@ -139,12 +156,13 @@ public class WebViewParser {
      * Injects JavaScript extraction agent into the page.
      * The JavaScript uses robust selectors and content stabilization.
      */
-    private void executeExtractionAgent(WebEngine webEngine, Consumer<Story> onComplete) {
+    private void executeExtractionAgent(WebEngine webEngine, Consumer<Story> wrappedCallback,
+            Consumer<Story> originalCallback, Consumer<Story> onRefresh) {
         logger.info("Injecting extraction agent");
 
         // Set up Java ↔ JavaScript bridge
         JSObject window = (JSObject) webEngine.executeScript("window");
-        window.setMember("javaApp", new JavaBridge(onComplete, objectMapper));
+        window.setMember("javaApp", new JavaBridge(wrappedCallback, originalCallback, onRefresh, objectMapper));
 
         // Inject hardened extraction script
         webEngine.executeScript(buildExtractionScript());
@@ -326,122 +344,185 @@ public class WebViewParser {
                         }
 
                         /**
-                         * Auto-scroll with content stabilization detection
-                         * Waits for height to stabilize before considering complete
+                         * Navigate through all storybook pages by clicking "Next page" button
+                         * Gemini storybook is PAGINATED, not scrollable!
                          */
-                        function autoScrollWithStabilization(completion) {
-                            console.log("Starting smart auto-scroll...");
 
-                            var startTime = Date.now();
-                            var CHECK_INTERVAL = 200;  // Check every 200ms
-                            var SCROLL_DISTANCE = 800;
-                            var MAX_TIME = 5000; // 5 second hard timeout
 
-                            // Initialize with current height
-                            var previousHeight = Math.max(
-                                document.body.scrollHeight,
-                                document.documentElement.scrollHeight
-                            );
-                            var stableCount = 0;
 
-                            console.log("Initial page height: " + previousHeight + "px");
+                        // Guard
+                        if (window.__storyExtractorRunning) return;
+                        window.__storyExtractorRunning = true;
 
-                            // Early bailout: if page is small and already at bottom, skip scrolling
-                            var viewportHeight = window.innerHeight;
-                            var scrollTop = Math.max(document.body.scrollTop, document.documentElement.scrollTop);
-                            if (previousHeight - scrollTop <= viewportHeight * 1.5) {
-                                console.log("Page already fully loaded, skipping scroll");
-                                completion();
-                                return;
-                            }
+                        function navigateAllPagesAndExtract(completion) {
+                            console.log("Starting AGGRESSIVE navigation...");
 
-                            var timer = setInterval(function() {
-                                var elapsed = Date.now() - startTime;
-                                var currentHeight = Math.max(
-                                    document.body.scrollHeight,
-                                    document.documentElement.scrollHeight
+                            var collectedScenes = [];
+                            var sameTextCount = 0;
+                            var pageCount = 0;
+                            var maxPages = 50;
+
+
+                            function extractAndMove() {
+                                // Helper to find TRULY visible element (not just in DOM)
+                                function getVisible(selector) {
+                                    var els = Array.from(document.querySelectorAll(selector));
+                                    return els.find(function(el) {
+                                        if (!el.offsetParent) return false; // Element or ancestor is display:none
+
+                                        var rect = el.getBoundingClientRect();
+                                        if (rect.width === 0 || rect.height === 0) return false;
+
+                                        var style = window.getComputedStyle(el);
+                                        if (style.visibility === 'hidden' || style.opacity === '0') return false;
+
+                                        // Check if element is in viewport (visible on screen)
+                                        if (rect.bottom < 0 || rect.top > window.innerHeight) return false;
+                                        if (rect.right < 0 || rect.left > window.innerWidth) return false;
+
+                                        return true;
+                                    });
+                                }
+
+                                // 1. Extract from VISIBLE elements
+                                var imgEl = getVisible('div.storybook-image img') ||
+                                            getVisible('storybook-page img') ||
+                                            getVisible('img[src*="googleusercontent"]'); // Fallback
+
+                                var imageUrl = (imgEl && imgEl.src && imgEl.src.startsWith('http')) ? imgEl.src : null;
+
+                                var textEl = getVisible('div.story-text-container') ||
+                                             getVisible('[class*="story-text"]') ||
+                                             getVisible('p'); // Broad fallback if specific container missing
+
+                                var text = textEl ? textEl.textContent.trim() : "";
+
+                                console.log("Scanning Page " + (pageCount+1) + " [" + (imageUrl?"IMG":"") + " " + (text?"TXT":"") + "]");
+                                console.log("Text preview: " + (text ? text.substring(0, 30) + "..." : "EMPTY"));
+                                console.log("Image URL: " + (imageUrl ? imageUrl.substring(0, 50) + "..." : "NONE"));
+
+
+                                // 2. Check for End (Stuck detection)
+                                // If Text AND Image are identical to the previous capture, we are stuck/done.
+                                var isSameAsLast = (
+                                    collectedScenes.length > 0 &&
+                                    text === collectedScenes[collectedScenes.length-1].text &&
+                                    imageUrl === collectedScenes[collectedScenes.length-1].imageUrl
                                 );
 
-                                // Debug log every second
-                                if (Math.floor(elapsed/1000) > Math.floor((elapsed-CHECK_INTERVAL)/1000)) {
-                                    console.log("Scrolling... " + (elapsed/1000).toFixed(1) + "s, Height: " + currentHeight + "px, Stable: " + stableCount);
+                                if (collectedScenes.length > 0) {
+                                    console.log("Last scene text: " + (collectedScenes[collectedScenes.length-1].text ? collectedScenes[collectedScenes.length-1].text.substring(0, 30) + "..." : "EMPTY"));
                                 }
 
-                                // Hard timeout safety net
-                                if (elapsed > MAX_TIME) {
-                                    console.log("Scroll timeout reached after " + (elapsed/1000).toFixed(1) + "s");
-                                    clearInterval(timer);
-                                    completion();
-                                    return;
-                                }
-
-                                // Stabilization check
-                                if (currentHeight === previousHeight) {
-                                    stableCount++;
-                                    if (stableCount >= 2) { // 2 checks = 400ms stability
-                                        console.log("Content stabilized at " + currentHeight + "px after " + (elapsed/1000).toFixed(1) + "s");
-                                        clearInterval(timer);
-                                        completion();
+                                if (isSameAsLast) {
+                                    sameTextCount++;
+                                    console.log("Content unchanged (" + sameTextCount + ")");
+                                    if (sameTextCount >= 3) {
+                                        console.log("Stuck on same content. Finished.");
+                                        finish();
                                         return;
                                     }
                                 } else {
-                                    stableCount = 0;
-                                    previousHeight = currentHeight;
+                                    sameTextCount = 0;
+                                    // Collect new scene
+                                    collectedScenes.push({ text: text, imageUrl: imageUrl });
+                                    console.log("Collected scene #" + collectedScenes.length);
                                 }
 
-                                // Scroll down
-                                window.scrollBy(0, SCROLL_DISTANCE);
-                            }, CHECK_INTERVAL);
+                                if (pageCount >= maxPages) { finish(); return; }
+
+                                // 3. Find Next Button
+                                var nextBtn = document.querySelector('button[aria-label="Next page"]') ||
+                                              document.querySelector('[aria-label="Next page"]');
+
+                                if (!nextBtn) {
+                                    console.log("Next button GONE.");
+                                    finish();
+                                    return;
+                                }
+
+                                // 4. Click Next
+                                console.log("Clicking Next...");
+                                try { nextBtn.click(); } catch(e) { console.log("Click fail: " + e); }
+
+                                pageCount++;
+
+                                // 5. Wait longer for page transition (increased to 5s)
+                                setTimeout(extractAndMove, 5000);
+                            }
+
+                            function finish() {
+                                window.__storyExtractorRunning = false;
+                                completion(collectedScenes);
+                            }
+
+
+                            // Start
+                            rewindAndStart();
+
+                            function rewindAndStart() {
+                                console.log("Rewinding to start...");
+                                var attempts = 0;
+                                var maxRewinds = 30;
+
+                                function doRewind() {
+                                    // Try to find the Previous button
+                                    var prevBtn = document.querySelector('button[aria-label="Previous page"]') ||
+                                                  document.querySelector('[aria-label="Previous page"]');
+
+                                    // Check if we are at start (Previous disabled or missing)
+                                    var isStart = !prevBtn ||
+                                                  prevBtn.disabled ||
+                                                  prevBtn.classList.contains('mat-mdc-button-disabled') ||
+                                                  prevBtn.getAttribute('disabled') === 'true';
+
+                                    // Also check page indicator if available (e.g. "1 / 10")
+                                    var pageInd = document.body.innerText.match(/(\\d+)\\s*\\/\\s*\\d+/);
+                                    if (pageInd && pageInd[1] === '1') {
+                                        isStart = true;
+                                    }
+
+                                    if (isStart || attempts >= maxRewinds) {
+                                        console.log("Rewind done. Starting extraction.");
+                                        // Reset state
+                                        pageCount = 0;
+                                        collectedScenes = [];
+                                        setTimeout(extractAndMove, 1000); // Give time for Page 1 to settle
+                                        return;
+                                    }
+
+                                    // Click Previous
+                                    if (prevBtn) {
+                                        try { prevBtn.click(); } catch(e) {}
+                                    }
+                                    attempts++;
+                                    setTimeout(doRewind, 200); // Fast rewind (200ms)
+                                }
+                                doRewind();
+                            }
                         }
 
-                        // ========== MAIN EXTRACTION LOGIC ==========
 
-                        autoScrollWithStabilization(function() {
-                            console.log("Scroll complete. Beginning extraction...");
+
+
+
+                        // ========== MAIN EXTRACTION LOGIC ==========
+                        // Use paginated navigation instead of scrolling
+                        navigateAllPagesAndExtract(function(collectedScenes) {
+                            console.log("Navigation complete. Building story...");
 
                             try {
                                 // Extract title
                                 var title = extractTitle();
 
-                                // Find story layers
-                                var layers = findStoryLayers();
-
-                                // Extract scenes
-                                var scenes = [];
-                                var seenTexts = new Set();
-
-                                layers.forEach(function(layer, index) {
-                                    var text = extractTextFromLayer(layer);
-                                    var imageUrl = extractImageFromLayer(layer);
-
-                                    // Skip empty layers
-                                    if (!text && !imageUrl) return;
-
-                                    // Deduplicate by text
-                                    if (text && seenTexts.has(text)) {
-                                        console.log("Skipping duplicate text at layer " + index);
-                                        return;
-                                    }
-
-                                    // Add to results
-                                    if (text || imageUrl) {
-                                        scenes.push({
-                                            text: text || '',
-                                            imageUrl: imageUrl || null
-                                        });
-
-                                        if (text) seenTexts.add(text);
-                                    }
-                                });
-
-                                console.log("Extraction complete: " + scenes.length + " scenes");
-                                console.log("Scenes with images: " + scenes.filter(function(s) { return s.imageUrl; }).length);
+                                console.log("Extraction complete: " + collectedScenes.length + " scenes");
+                                console.log("Scenes with images: " + collectedScenes.filter(function(s) { return s.imageUrl; }).length);
 
                                 // Build story object
                                 var story = {
                                     title: title,
                                     author: "Gemini",
-                                    scenes: scenes
+                                    scenes: collectedScenes
                                 };
 
                                 // Send to Java
@@ -456,6 +537,7 @@ public class WebViewParser {
                                 }));
                             }
                         });
+
 
                     })();
                 """;
@@ -491,11 +573,16 @@ public class WebViewParser {
      */
     public static class JavaBridge {
         private final Consumer<Story> callback;
+        private final Consumer<Story> originalCallback; // For refresh after image download
+        private final Consumer<Story> refreshCallback; // UI refresh callback after images download
         private final ObjectMapper objectMapper;
         private volatile boolean callbackInvoked = false;
 
-        public JavaBridge(Consumer<Story> callback, ObjectMapper objectMapper) {
+        public JavaBridge(Consumer<Story> callback, Consumer<Story> originalCallback,
+                Consumer<Story> refreshCallback, ObjectMapper objectMapper) {
             this.callback = callback;
+            this.originalCallback = originalCallback;
+            this.refreshCallback = refreshCallback;
             this.objectMapper = objectMapper;
         }
 
@@ -547,68 +634,67 @@ public class WebViewParser {
 
                 logger.info("Parsed story '{}' with {} scenes", story.getTitle(), story.getScenes().size());
 
-                // Download and cache images in parallel
-                List<Scene> scenesWithImages = story.getScenes().stream()
-                        .filter(s -> s.getImageUrl() != null && !s.getImageUrl().isEmpty())
-                        .toList();
-
-                if (!scenesWithImages.isEmpty()) {
-                    logger.info("Downloading {} images in parallel...", scenesWithImages.size());
-                    ExecutorService executor = Executors.newFixedThreadPool(
-                            Math.min(4, scenesWithImages.size())); // Max 4 concurrent downloads
-
-                    try {
-                        List<Future<Void>> futures = new ArrayList<>();
-                        AtomicInteger completedCount = new AtomicInteger(0);
-                        int totalImages = scenesWithImages.size();
-
-                        for (Scene scene : scenesWithImages) {
-                            futures.add(executor.submit(() -> {
-                                // Use ImageCacheService directly since we're in a static inner class
-                                String cachedUrl = ImageCacheService.getInstance()
-                                        .downloadAndCache(scene.getImageUrl());
-                                if (cachedUrl != null) {
-                                    scene.setImageUrl(cachedUrl);
-                                } else {
-                                    scene.setImageUrl(null);
-                                }
-                                int completed = completedCount.incrementAndGet();
-                                logger.info("Image download progress: {}/{}", completed, totalImages);
-                                return null;
-                            }));
-                        }
-
-                        // Wait for all downloads to complete
-                        for (Future<Void> future : futures) {
-                            try {
-                                future.get(30, TimeUnit.SECONDS); // 30s timeout per image
-                            } catch (TimeoutException e) {
-                                logger.warn("Image download timed out");
-                                future.cancel(true);
-                            }
-                        }
-
-                        long successCount = story.getScenes().stream()
-                                .filter(s -> s.getImageUrl() != null && s.getImageUrl().startsWith("file:"))
-                                .count();
-                        logger.info("Cached {} images", successCount);
-
-                    } catch (Exception e) {
-                        logger.error("Error during parallel image download", e);
-                    } finally {
-                        executor.shutdown();
-                    }
-                } else {
-                    logger.info("No images to download");
-                }
-
-                // Invoke callback on JavaFX thread
+                // IMMEDIATELY invoke callback so UI shows scenes right away
+                // Images will be downloaded in background and updated progressively
                 Story finalStory = story;
                 Platform.runLater(() -> {
                     if (callback != null) {
                         callback.accept(finalStory);
                     }
                 });
+
+                // Download and cache images in background (non-blocking)
+                List<Scene> scenesWithImages = story.getScenes().stream()
+                        .filter(s -> s.getImageUrl() != null && !s.getImageUrl().isEmpty()
+                                && !s.getImageUrl().startsWith("file:")) // Skip already cached
+                        .toList();
+
+                if (!scenesWithImages.isEmpty()) {
+                    logger.info("Starting background download of {} images...", scenesWithImages.size());
+
+                    // Use a separate thread for the download coordinator
+                    new Thread(() -> {
+                        ExecutorService executor = Executors.newFixedThreadPool(
+                                Math.min(4, scenesWithImages.size()));
+                        try {
+                            AtomicInteger completedCount = new AtomicInteger(0);
+                            int totalImages = scenesWithImages.size();
+
+                            for (Scene scene : scenesWithImages) {
+                                executor.submit(() -> {
+                                    String cachedUrl = ImageCacheService.getInstance()
+                                            .downloadAndCache(scene.getImageUrl());
+                                    if (cachedUrl != null) {
+                                        scene.setImageUrl(cachedUrl);
+                                    }
+                                    int completed = completedCount.incrementAndGet();
+                                    logger.info("Image download progress: {}/{}", completed, totalImages);
+                                });
+                            }
+
+                            executor.shutdown();
+                            executor.awaitTermination(5, TimeUnit.MINUTES);
+
+                            long successCount = finalStory.getScenes().stream()
+                                    .filter(s -> s.getImageUrl() != null && s.getImageUrl().startsWith("file:"))
+                                    .count();
+                            logger.info("Background image download complete: {} cached", successCount);
+
+                            // Invoke refresh callback to update UI with cached images
+                            if (refreshCallback != null) {
+                                Platform.runLater(() -> {
+                                    logger.info("Refreshing UI with cached images");
+                                    refreshCallback.accept(finalStory);
+                                });
+                            }
+
+                        } catch (Exception e) {
+                            logger.error("Error during background image download", e);
+                        }
+                    }, "ImageDownloadThread").start();
+                } else {
+                    logger.info("No images to download");
+                }
 
             } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
                 logger.error("JSON parsing failed", e);

@@ -16,6 +16,8 @@ import javafx.scene.image.ImageView;
 import javafx.scene.image.Image;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Main Controller acting as the orchestrator.
@@ -201,7 +203,7 @@ public class MainController {
 
         pipelineService.clearSteps();
         pipelineService
-                .addStep(new com.boilerplate.app.pipeline.steps.ExtractionStep(browserController.getWebEngine()));
+                .addStep(new com.boilerplate.app.pipeline.steps.ExtractionStep(browserController.getWebEngine(), this));
 
         com.boilerplate.app.pipeline.PipelineContext context = new com.boilerplate.app.pipeline.PipelineContext();
 
@@ -298,11 +300,89 @@ public class MainController {
             Platform.runLater(() -> updateStatus("⚠️ No scenes found"));
             return;
         }
+
+        // If this is the SAME story object (refresh after image download), just refresh
+        // UI
+        // Only merge if it's a DIFFERENT story object (new extraction)
+        if (this.currentStory != null && this.currentStory != story && !this.currentStory.getScenes().isEmpty()) {
+            story = mergeScenes(this.currentStory, story);
+            logger.info("Merged extraction with existing story: {} scenes", story.getScenes().size());
+        }
+
         this.currentStory = story;
+        Story finalStory = story;
         Platform.runLater(() -> {
-            updateStatus("Extracted: " + story.getTitle());
-            sceneListController.displayStory(story);
+            updateStatus("Extracted: " + finalStory.getTitle() + " (" + finalStory.getScenes().size() + " scenes)");
+            sceneListController.displayStory(finalStory);
         });
+    }
+
+    /**
+     * Merges new extraction results with existing story.
+     * - Matches scenes by text content (first 50 chars)
+     * - Updates existing scenes with new images if they were missing
+     * - Adds truly new scenes at the end
+     */
+    private Story mergeScenes(Story existing, Story newExtraction) {
+        List<Scene> mergedScenes = new ArrayList<>(existing.getScenes());
+
+        for (Scene newScene : newExtraction.getScenes()) {
+            String newText = normalizeText(newScene.getText());
+            boolean matched = false;
+
+            // Try to find a matching existing scene
+            for (Scene existingScene : mergedScenes) {
+                String existingText = normalizeText(existingScene.getText());
+
+                // Match by text similarity (first 50 chars or exact match)
+                if (textsMatch(existingText, newText)) {
+                    // Update image if existing scene doesn't have one but new one does
+                    if ((existingScene.getImageUrl() == null || existingScene.getImageUrl().isEmpty())
+                            && newScene.getImageUrl() != null && !newScene.getImageUrl().isEmpty()) {
+                        existingScene.setImageUrl(newScene.getImageUrl());
+                        logger.debug("Updated existing scene with new image");
+                    }
+                    matched = true;
+                    break;
+                }
+            }
+
+            // If no match found and scene has unique content, add it
+            if (!matched && (newText.length() > 10 || newScene.getImageUrl() != null)) {
+                mergedScenes.add(newScene);
+                logger.debug("Added new scene: {}", newText.substring(0, Math.min(30, newText.length())));
+            }
+        }
+
+        // Create merged story
+        Story merged = new Story();
+        merged.setTitle(existing.getTitle()); // Keep original title
+        merged.setAuthor(existing.getAuthor());
+        merged.setScenes(mergedScenes);
+        merged.setId(existing.getId());
+
+        return merged;
+    }
+
+    private String normalizeText(String text) {
+        if (text == null)
+            return "";
+        return text.trim().toLowerCase().replaceAll("\\s+", " ");
+    }
+
+    private boolean textsMatch(String a, String b) {
+        if (a.isEmpty() && b.isEmpty())
+            return true;
+        if (a.isEmpty() || b.isEmpty())
+            return false;
+
+        // Exact match
+        if (a.equals(b))
+            return true;
+
+        // Prefix match (first 50 chars)
+        int compareLen = Math.min(50, Math.min(a.length(), b.length()));
+        return a.substring(0, compareLen).equals(b.substring(0, compareLen));
     }
 
     public void handleSceneSelection(Scene scene) {
@@ -318,6 +398,66 @@ public class MainController {
 
     public void refreshSceneList() {
         sceneListController.refreshList();
+    }
+
+    /**
+     * Refresh the scene list UI to show downloaded images.
+     * Called by WebViewParser after background image downloads complete.
+     * This method syncs the downloaded image URLs from the extraction story
+     * to the currentStory's scenes, then refreshes the UI.
+     * 
+     * @param updatedStory The story with updated image URLs from background
+     *                     download
+     */
+    public void refreshSceneImages(Story updatedStory) {
+        Platform.runLater(() -> {
+            if (currentStory == null || updatedStory == null) {
+                return;
+            }
+
+            logger.debug("Syncing {} downloaded images to currentStory",
+                    updatedStory.getScenes().stream()
+                            .filter(s -> s.getImageUrl() != null && s.getImageUrl().startsWith("file:"))
+                            .count());
+
+            // Sync image URLs from updatedStory to currentStory by matching scene text
+            for (Scene currentScene : currentStory.getScenes()) {
+                if (currentScene.getImageUrl() != null && currentScene.getImageUrl().startsWith("file:")) {
+                    continue; // Already has cached image
+                }
+
+                String currentText = normalizeText(currentScene.getText());
+
+                // Find matching scene in updatedStory
+                for (Scene updatedScene : updatedStory.getScenes()) {
+                    if (updatedScene.getImageUrl() != null && updatedScene.getImageUrl().startsWith("file:")) {
+                        String updatedText = normalizeText(updatedScene.getText());
+                        if (textsMatch(currentText, updatedText)) {
+                            currentScene.setImageUrl(updatedScene.getImageUrl());
+                            logger.debug("Synced image to scene: {}",
+                                    currentText.substring(0, Math.min(30, currentText.length())));
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Refresh the scene list UI
+            sceneListController.refreshList();
+
+            // Also refresh the current editor if a scene is selected
+            Scene selectedScene = sceneListView.getSelectionModel().getSelectedItem();
+            if (selectedScene != null) {
+                int index = currentStory.getScenes().indexOf(selectedScene);
+                editorController.loadScene(selectedScene, index, currentStory.getScenes().size(), currentTemplate);
+            }
+
+            updateStatus("✅ Images loaded (" +
+                    currentStory.getScenes().stream()
+                            .filter(s -> s.getImageUrl() != null && s.getImageUrl().startsWith("file:"))
+                            .count()
+                    + " images)");
+        });
     }
 
     public void setEditMode(boolean enabled) {

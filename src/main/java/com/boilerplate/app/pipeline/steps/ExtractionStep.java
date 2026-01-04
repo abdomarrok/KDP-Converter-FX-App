@@ -17,11 +17,17 @@ public class ExtractionStep implements PipelineStep {
 
     private final WebEngine webEngine;
     private final ExtractionService extractionService;
+    private final com.boilerplate.app.controller.MainController mainController;
 
-    public ExtractionStep(WebEngine webEngine) {
+    public ExtractionStep(WebEngine webEngine, com.boilerplate.app.controller.MainController mainController) {
         this.webEngine = webEngine;
+        this.mainController = mainController;
         this.extractionService = new ExtractionService();
         this.extractionService.setWebEngine(webEngine);
+        // Set the refresh callback to refresh scene images after download
+        if (mainController != null) {
+            this.extractionService.setRefreshCallback(story -> mainController.refreshSceneImages(story));
+        }
     }
 
     @Override
