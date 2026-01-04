@@ -636,16 +636,11 @@ public class MainController {
     }
 
     // Background helpers
-    private final java.util.concurrent.ExecutorService backgroundExecutor = java.util.concurrent.Executors
-            .newCachedThreadPool(r -> {
-                Thread t = new Thread(r);
-                t.setDaemon(true);
-                return t;
-            });
+    // Uses centralized ThreadPoolService for compute-bound tasks
 
     public <T> void runBackgroundTask(MainController.CallableWithException<T> task,
             MainController.ConsumerWithException<T> onSuccess, String errorPrefix) {
-        backgroundExecutor.submit(() -> {
+        ThreadPoolService.getInstance().submitCompute(() -> {
             try {
                 T result = task.call();
                 Platform.runLater(() -> {
@@ -662,7 +657,7 @@ public class MainController {
     }
 
     public void runBackgroundAction(MainController.RunnableWithException task, Runnable onSuccess, String errorPrefix) {
-        backgroundExecutor.submit(() -> {
+        ThreadPoolService.getInstance().submitCompute(() -> {
             try {
                 task.run();
                 Platform.runLater(onSuccess);

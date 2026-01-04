@@ -33,7 +33,6 @@ public class WebViewParser {
 
     private static final Logger logger = LogManager.getLogger(WebViewParser.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private static final ExecutorService backgroundExecutor = Executors.newCachedThreadPool();
 
     // === STATE MANAGEMENT (Prevents duplicate extractions) ===
     private volatile boolean isExtracting = false;
@@ -304,15 +303,14 @@ public class WebViewParser {
                     logger.info("Starting background download of {} images...", scenesWithImages.size());
 
                     // Use shared executor service instead of creating new threads
-                    backgroundExecutor.submit(() -> {
-                        ExecutorService downloadExecutor = Executors.newFixedThreadPool(
-                                Math.min(4, scenesWithImages.size()));
+                    ThreadPoolService.getInstance().submitCompute(() -> {
                         try {
                             AtomicInteger completedCount = new AtomicInteger(0);
                             int totalImages = scenesWithImages.size();
+                            List<java.util.concurrent.Future<?>> futures = new ArrayList<>();
 
                             for (Scene scene : scenesWithImages) {
-                                downloadExecutor.submit(() -> {
+                                futures.add(ThreadPoolService.getInstance().submitIo(() -> {
                                     String cachedUrl = ImageCacheService.getInstance()
                                             .downloadAndCache(scene.getImageUrl());
                                     if (cachedUrl != null) {
@@ -320,11 +318,17 @@ public class WebViewParser {
                                     }
                                     int completed = completedCount.incrementAndGet();
                                     logger.info("Image download progress: {}/{}", completed, totalImages);
-                                });
+                                }));
                             }
 
-                            downloadExecutor.shutdown();
-                            downloadExecutor.awaitTermination(5, TimeUnit.MINUTES);
+                            // Wait for all downloads to complete
+                            for (java.util.concurrent.Future<?> future : futures) {
+                                try {
+                                    future.get(5, TimeUnit.MINUTES);
+                                } catch (Exception e) {
+                                    logger.error("Image download task failed/timed out", e);
+                                }
+                            }
 
                             long successCount = finalStory.getScenes().stream()
                                     .filter(s -> s.getImageUrl() != null && s.getImageUrl().startsWith("file:"))

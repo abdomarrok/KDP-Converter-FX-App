@@ -39,6 +39,7 @@ public class App extends Application {
 
     @Override
     public void stop() throws Exception {
+        com.boilerplate.app.service.ThreadPoolService.getInstance().shutdown();
         if (db != null) {
             db.stopDatabase();
         }
