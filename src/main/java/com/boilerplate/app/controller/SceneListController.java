@@ -72,6 +72,16 @@ public class SceneListController {
         sceneListView.refresh();
     }
 
+    /**
+     * Clears the scene list and resets the UI to empty state.
+     */
+    public void clear() {
+        sceneListView.getItems().clear();
+        sceneCountLabel.setText("(0)");
+        updateEmptyState();
+        updateSelectionState(null);
+    }
+
     private void updateEmptyState() {
         boolean isEmpty = sceneListView.getItems().isEmpty();
         emptyState.setVisible(isEmpty);

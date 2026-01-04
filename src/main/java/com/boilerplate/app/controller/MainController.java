@@ -3,6 +3,10 @@ package com.boilerplate.app.controller;
 import com.boilerplate.app.model.*;
 import com.boilerplate.app.service.*;
 import com.boilerplate.app.service.PdfGenerationService;
+import com.boilerplate.app.util.ErrorDialog;
+import com.boilerplate.app.util.KeyboardShortcuts;
+import com.boilerplate.app.dialog.AboutDialog;
+import com.boilerplate.app.service.AutoSaveService;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -14,6 +18,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import javafx.scene.image.ImageView;
 import javafx.scene.image.Image;
+import javafx.scene.input.KeyEvent;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -78,10 +83,12 @@ public class MainController {
     private Label statusLabel;
 
     // === PDF ===
-    // === Services ===
     private final StoryService storyService = new StoryService();
+    private final PdfGenerationService pdfService = new PdfGenerationService();
     private final JasperPdfService jasperPdfService = new JasperPdfService();
-    private final com.boilerplate.app.service.PipelineService pipelineService = new com.boilerplate.app.service.PipelineService();
+    private final PipelineService pipelineService = new PipelineService();
+    private final AutoSaveService autoSaveService;
+    private final ImageCacheService imageCacheService = ImageCacheService.getInstance();
 
     // === Sub-Controllers (Delegates) ===
     private NavigationController navController;
@@ -93,6 +100,11 @@ public class MainController {
     private volatile Story currentStory;
     private KdpTemplate currentTemplate = KdpPresets.getDefault();
 
+    public MainController() {
+        // Services initialized in constructor
+        this.autoSaveService = new AutoSaveService(storyService);
+    }
+
     @FXML
     public void initialize() {
         logger.info("MainController initializing");
@@ -103,6 +115,9 @@ public class MainController {
         // Initialize UI components directly managed by MainController
         // (persistence/template)
         setupTemplateControls();
+        setupKeyboardShortcuts();
+        setupTooltips();
+        setupAutoSave();
 
         statusLabel.setText("Ready to forge stories.");
         logger.info("MainController initialized");
@@ -166,6 +181,143 @@ public class MainController {
         fontSizeSpinner.setValueFactory(valueFactory);
     }
 
+    private void setupAutoSave() {
+        autoSaveService.setStorySupplier(() -> currentStory);
+        autoSaveService.setStatusCallback(msg -> {
+            // Update status without logging (too verbose)
+            updateStatus(msg);
+            // Revert status after 3 seconds
+            new java.util.Timer().schedule(new java.util.TimerTask() {
+                @Override
+                public void run() {
+                    Platform.runLater(() -> {
+                        if (statusLabel.getText().equals("❌ " + msg) || statusLabel.getText().contains("Auto-saved")) {
+                            updateStatus("Ready");
+                        }
+                    });
+                }
+            }, 3000);
+        });
+        autoSaveService.configureFromSettings();
+    }
+
+    private void setupKeyboardShortcuts() {
+        // Set up master key event handler for the scene
+        Platform.runLater(() -> {
+            if (urlField.getScene() != null) {
+                urlField.getScene().addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+                    // Save Story (Ctrl+S)
+                    if (KeyboardShortcuts.SAVE_STORY.match(event)) {
+                        handleSaveStory();
+                        event.consume();
+                    }
+                    // Toggle Edit Mode (Ctrl+E)
+                    else if (KeyboardShortcuts.TOGGLE_EDIT_MODE.match(event)) {
+                        handleToggleEditMode();
+                        event.consume();
+                    }
+                    // Generate PDF (Ctrl+G)
+                    else if (KeyboardShortcuts.GENERATE_PDF.match(event)) {
+                        handleGeneratePdf();
+                        event.consume();
+                    }
+                    // New Story (Ctrl+N)
+                    else if (KeyboardShortcuts.NEW_STORY.match(event)) {
+                        handleNewStory();
+                        event.consume();
+                    }
+                    // Open Story (Ctrl+O or Ctrl+L)
+                    else if (KeyboardShortcuts.OPEN_STORY.match(event) || KeyboardShortcuts.LOAD_STORY.match(event)) {
+                        handleOpenStory();
+                        event.consume();
+                    }
+                    // Refresh Browser (F5)
+                    else if (KeyboardShortcuts.REFRESH.match(event)) {
+                        handleRefreshBrowser();
+                        event.consume();
+                    }
+                    // Show Help (F1)
+                    else if (KeyboardShortcuts.SHOW_HELP.match(event)) {
+                        AboutDialog.show();
+                        event.consume();
+                    }
+                    // Show Shortcuts (Ctrl+/)
+                    else if (KeyboardShortcuts.SHOW_SHORTCUTS.match(event)) {
+                        AboutDialog.showKeyboardShortcuts();
+                        event.consume();
+                    }
+                });
+                logger.info("Keyboard shortcuts enabled");
+            }
+        });
+    }
+
+    private void setupTooltips() {
+        // URL field tooltip
+        if (urlField != null) {
+            urlField.setTooltip(new Tooltip("Enter Gemini story URL (Ctrl+L to focus)"));
+        }
+
+        // Edit mode toggle tooltip
+        if (editModeToggle != null) {
+            editModeToggle.setTooltip(new Tooltip("Toggle edit mode (Ctrl+E)"));
+        }
+
+        // Scene list tooltips
+        if (moveUpBtn != null) {
+            moveUpBtn.setTooltip(new Tooltip("Move scene up"));
+        }
+        if (moveDownBtn != null) {
+            moveDownBtn.setTooltip(new Tooltip("Move scene down"));
+        }
+        if (deleteSceneBtn != null) {
+            deleteSceneBtn.setTooltip(new Tooltip("Delete selected scene"));
+        }
+
+        // Template tooltips
+        if (templateCombo != null) {
+            templateCombo.setTooltip(new Tooltip("Select KDP template size"));
+        }
+        if (layoutCombo != null) {
+            layoutCombo.setTooltip(new Tooltip("Choose image layout style"));
+        }
+        if (fontSizeSpinner != null) {
+            fontSizeSpinner.setTooltip(new Tooltip("Adjust text font size"));
+        }
+
+        logger.info("Tooltips configured");
+    }
+
+    /**
+     * Creates a new story (clears current state).
+     */
+    private void handleNewStory() {
+        if (currentStory != null && !currentStory.getScenes().isEmpty()) {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setTitle("New Story");
+            confirm.setHeaderText("Clear current story?");
+            confirm.setContentText("This will clear the current story. Unsaved changes will be lost.");
+
+            confirm.showAndWait().ifPresent(response -> {
+                if (response == ButtonType.OK) {
+                    clearCurrentStory();
+                }
+            });
+        } else {
+            clearCurrentStory();
+        }
+    }
+
+    /**
+     * Clears the current story state.
+     */
+    private void clearCurrentStory() {
+        currentStory = null;
+        sceneListController.clear();
+        editorController.clear();
+        updateStatus("Ready for new story");
+    }
+
     // === Event Handlers delegated to Sub-Controllers ===
 
     // Navigation
@@ -214,7 +366,8 @@ public class MainController {
                 })
                 .exceptionally(ex -> {
                     Platform.runLater(() -> {
-                        showError("Extraction failed: " + ex.getMessage());
+                        ErrorDialog.showExtractionError(ex);
+                        updateStatus("❌ Extraction failed");
                     });
                     return null;
                 });
@@ -277,10 +430,10 @@ public class MainController {
     public void showError(String msg) {
         statusLabel.setText("❌ " + msg);
         logger.error(msg);
-        // Also show error dialog for critical errors
-        com.boilerplate.app.util.ErrorHandler.showError(
+        // Show user-friendly error dialog
+        ErrorDialog.showError(
                 "Error",
-                "An error occurred",
+                "An operation failed",
                 msg);
     }
 
@@ -477,7 +630,7 @@ public class MainController {
     @FXML
     private void handleSaveStory() {
         if (currentStory == null) {
-            com.boilerplate.app.util.ErrorHandler.showError(
+            ErrorDialog.showError(
                     "No Story to Save",
                     "Cannot save story",
                     "Please extract or load a story first.");
@@ -501,14 +654,10 @@ public class MainController {
 
         if (saveTask.getException() != null) {
             updateStatus("❌ Error saving story");
-            com.boilerplate.app.util.ErrorHandler.showError(
-                    "Save Failed",
-                    "Failed to save story",
-                    saveTask.getException().getMessage(),
-                    saveTask.getException());
+            ErrorDialog.showSaveError(saveTask.getException());
         } else if (saveTask.isDone()) { // Success
             updateStatus("✅ Saved: " + currentStory.getTitle());
-            com.boilerplate.app.util.ErrorHandler.showInfo(
+            ErrorDialog.showInfo(
                     "Story Saved",
                     "Story '" + currentStory.getTitle() + "' has been saved successfully.");
         }

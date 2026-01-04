@@ -1,5 +1,6 @@
 package com.boilerplate.app.service;
 
+import com.boilerplate.app.config.AppConfig;
 import com.boilerplate.app.model.KdpPresets;
 import com.boilerplate.app.model.KdpTemplate;
 import com.boilerplate.app.model.Story;
@@ -50,8 +51,8 @@ public class JasperPdfService {
                 template.getPageWidth(), template.getPageHeight(),
                 template.getPageWidthPoints(), template.getPageHeightPoints());
 
-        // Set temp dir for compilation
-        System.setProperty("jasper.reports.compile.temp", System.getProperty("java.io.tmpdir"));
+        // Set temp dir for compilation from config
+        System.setProperty("jasper.reports.compile.temp", AppConfig.getInstance().getPdfJasperTempDir());
 
         // Load report template as JasperDesign to modify page size
         InputStream reportStream = getClass().getResourceAsStream("/reports/story_book.jrxml");

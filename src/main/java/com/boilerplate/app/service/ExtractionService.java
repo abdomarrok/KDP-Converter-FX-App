@@ -1,5 +1,6 @@
 package com.boilerplate.app.service;
 
+import com.boilerplate.app.config.AppConfig;
 import com.boilerplate.app.model.Story;
 import javafx.concurrent.Service;
 import javafx.concurrent.Task;
@@ -49,10 +50,11 @@ public class ExtractionService extends Service<Story> {
                     }
                 }, refreshCallback);
 
-                // Wait for extraction to complete (with timeout)
+                // Wait for extraction to complete (with configurable timeout)
+                int timeoutMs = AppConfig.getInstance().getExtractionTimeoutSeconds() * 1000;
                 synchronized (lock) {
                     try {
-                        lock.wait(300000); // 300 second timeout
+                        lock.wait(timeoutMs);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException("Extraction interrupted", e);

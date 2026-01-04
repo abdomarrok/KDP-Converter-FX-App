@@ -76,3 +76,4 @@ embedded-db/
 *.lic
 /target/
 run.bat
+run.bat
