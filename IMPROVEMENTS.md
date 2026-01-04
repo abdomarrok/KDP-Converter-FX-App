@@ -2,31 +2,9 @@
 
 ## 🎯 High Priority (Next Steps)
 
-### 1. **Image Management Enhancements**
-
 - **Improvements**:
-  - Implement image compression/optimization before PDF generation
-  - Support multiple image formats (WebP, AVIF)
-  - Add strict size limits and tunable LRU eviction policies
-  - Implement image deduplication (hash-based)
-  - ✅ Remove watermark from AI generated images
-
-### 2. **Database Schema & Migrations**
-
-- **Improvements**:
-  - Add indexes on frequently queried columns (story_id, updated_at)
-  - Implement soft deletes instead of hard deletes
   - Add database backup/export functionality
   - Add data validation constraints
-
-### 3. **Code Organization & Architecture**
-
-- **Improvements**:
-  - Fix `refreshSceneList()` logic clarification
-  - Replace reflection-based field injection with proper dependency injection (Spring/Guice)
-  - Extract constants to configuration classes
-  - Split large methods (e.g., `WebViewParser.injectExtractionScript()`)
-  - Use builder pattern for complex objects
 
 ### 4. **PDF Generation Enhancements**
 
@@ -36,7 +14,6 @@
   - Support custom fonts (TTF/OTF loading)
   - Add cover page generation
   - Support multi-column text layouts
-  - Add watermark support
   - Implement PDF/A compliance option
 
 ---
@@ -51,27 +28,6 @@
   - Add story preview before PDF generation
   - Add recent stories menu
   - Add story search/filter functionality
-
-### 6. **Export & Import**
-
-- **Improvements**:
-  - Export stories to JSON format
-  - Import stories from JSON
-  - Support multiple PDF export formats (single-page, spreads)
-  - Export to EPUB format
-  - Add batch export for multiple stories
-  - Support cloud storage integration (Google Drive, Dropbox)
-
-### 7. **UI/UX Polish**
-
-- **Improvements**:
-  - Add dark mode support (fully integrated themes)
-  - Improve responsive layout for different window sizes
-  - Implement scene thumbnails in list view
-  - Add zoom controls for page preview
-  - Show image loading indicators
-  - Add splash screen on startup
-  - Improve empty states with helpful illustrations
 
 ### 8. **Performance Optimizations**
 

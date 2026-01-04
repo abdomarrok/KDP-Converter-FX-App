@@ -144,6 +144,16 @@ public class AppConfig {
         return getInt("image.watermark.crop.bottom", 40); // 40px seems reasonable for most AI watermarks
     }
 
+    public String getImageFormat() {
+        return getString("image.format", "jpg"); // jpg or png
+    }
+
+    public float getImageCompressionQuality() {
+        // 0.0 to 1.0, default 0.85 (good balance)
+        float q = Float.parseFloat(getString("image.quality", "0.85"));
+        return Math.max(0.0f, Math.min(1.0f, q));
+    }
+
     // === PDF Generation Settings ===
 
     public String getPdfJasperTempDir() {
