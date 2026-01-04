@@ -53,20 +53,41 @@ public class AppConfig {
     // === Cache Settings ===
 
     public String getCacheDirectory() {
-        String cacheDir = getString("cache.dir", ".storyforge/storyforge-images");
-        // Expand user home if starts with dot
+        return getString("cache.dir", ".storyforge/storyforge-images");
+    }
+
+    /**
+     * Returns the absolute path to the cache directory.
+     * Resolves relative paths against user home.
+     */
+    public java.nio.file.Path getCacheDirectoryPath() {
+        String cacheDir = getCacheDirectory();
         if (cacheDir.startsWith(".")) {
-            return System.getProperty("user.home") + "/" + cacheDir;
+            return java.nio.file.Paths.get(System.getProperty("user.home"), cacheDir);
         }
-        return cacheDir;
+        return java.nio.file.Paths.get(cacheDir);
     }
 
     public int getCacheMaxSizeMB() {
         return getInt("cache.max.size.mb", 500);
     }
 
+    public long getCacheMaxSize() {
+        return getCacheMaxSizeMB() * 1024L * 1024L;
+    }
+
     public int getCacheCleanupThresholdMB() {
         return getInt("cache.cleanup.threshold.mb", 400);
+    }
+
+    public long getCacheCleanupThreshold() {
+        return getCacheCleanupThresholdMB() * 1024L * 1024L;
+    }
+
+    // === Setter for Overrides (Testing/Embedded DB) ===
+
+    public void setProperty(String key, String value) {
+        properties.setProperty(key, value);
     }
 
     // === Network Settings ===
@@ -113,6 +134,14 @@ public class AppConfig {
 
     public int getImageMaxHeight() {
         return getInt("image.max.height", 2048);
+    }
+
+    public boolean isImageWatermarkRemovalEnabled() {
+        return getBoolean("image.watermark.remove", false); // Default false to be safe
+    }
+
+    public int getImageWatermarkCropBottomPixels() {
+        return getInt("image.watermark.crop.bottom", 40); // 40px seems reasonable for most AI watermarks
     }
 
     // === PDF Generation Settings ===

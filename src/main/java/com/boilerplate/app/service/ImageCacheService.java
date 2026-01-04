@@ -1,5 +1,6 @@
 package com.boilerplate.app.service;
 
+import com.boilerplate.app.config.AppConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -15,6 +16,8 @@ import java.util.Comparator;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
 
 /**
  * Service for managing persistent image cache with size limits and cleanup.
@@ -26,13 +29,13 @@ public class ImageCacheService {
     private final ScheduledExecutorService cleanupExecutor;
 
     private static ImageCacheService instance;
-    private final ConfigService configService;
+    private final AppConfig configService;
 
     private ImageCacheService() {
-        this.configService = ConfigService.getInstance();
+        this.configService = AppConfig.getInstance();
 
         // Use configured cache directory
-        this.cacheDir = configService.getCacheDirectory();
+        this.cacheDir = configService.getCacheDirectoryPath();
 
         try {
             Files.createDirectories(cacheDir);
@@ -73,46 +76,93 @@ public class ImageCacheService {
             return null;
         }
 
-        try {
-            // Generate filename from URL hash
-            String filename = Math.abs(imageUrl.hashCode()) + ".png";
-            Path cachedFile = cacheDir.resolve(filename);
+        int maxRetries = configService.getExtractionRetryAttempts(); // Reusing for consistent network policy
+        int retryDelay = configService.getExtractionRetryDelayMs();
+        Exception lastException = null;
 
-            // Return existing file if it exists and is valid
-            if (Files.exists(cachedFile) && Files.size(cachedFile) > 0) {
-                logger.debug("Using cached image: {}", filename);
+        for (int attempt = 1; attempt <= maxRetries + 1; attempt++) {
+            try {
+                // Generate filename from URL hash
+                String filename = Math.abs(imageUrl.hashCode()) + ".png";
+                Path cachedFile = cacheDir.resolve(filename);
+
+                // Return existing file if it exists and is valid
+                if (Files.exists(cachedFile) && Files.size(cachedFile) > 0) {
+                    logger.debug("Using cached image: {}", filename);
+                    return cachedFile.toUri().toString();
+                }
+
+                logger.info("Downloading image (attempt {}/{}): {}",
+                        attempt, maxRetries + 1, imageUrl.substring(0, Math.min(60, imageUrl.length())));
+
+                // Download image
+                URL url = new URI(imageUrl).toURL();
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestProperty("User-Agent", configService.getHttpUserAgent());
+                conn.setRequestProperty("Referer", "https://gemini.google.com/");
+                conn.setConnectTimeout(configService.getHttpConnectTimeout());
+                conn.setReadTimeout(configService.getHttpReadTimeout());
+
+                try (InputStream in = conn.getInputStream();
+                        OutputStream out = Files.newOutputStream(cachedFile)) {
+                    in.transferTo(out);
+                }
+
+                long fileSize = Files.size(cachedFile);
+                logger.info("Cached image: {} ({} bytes)", filename, fileSize);
+
+                // Trigger cleanup if cache is getting large
+                if (getCacheSize() > configService.getCacheCleanupThreshold()) {
+                    cleanupIfNeeded();
+                }
+
+                // Post-processing: Remove watermark if enabled
+                if (configService.isImageWatermarkRemovalEnabled()) {
+                    try {
+                        removeWatermark(cachedFile);
+                    } catch (Exception e) {
+                        logger.error("Failed to remove watermark from {}", filename, e);
+                        // Continue with original image, don't fail the download
+                    }
+                }
+
                 return cachedFile.toUri().toString();
+
+            } catch (Exception e) {
+                lastException = e;
+                logger.warn("Download failed (attempt {}/{}): {}", attempt, maxRetries + 1, e.getMessage());
+
+                if (attempt <= maxRetries) {
+                    try {
+                        // Exponential backoff
+                        Thread.sleep(retryDelay * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return null;
+                    }
+                }
             }
-
-            logger.info("Downloading image: {}", imageUrl.substring(0, Math.min(60, imageUrl.length())));
-
-            // Download image
-            URL url = new URI(imageUrl).toURL();
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestProperty("User-Agent", configService.getHttpUserAgent());
-            conn.setRequestProperty("Referer", "https://gemini.google.com/");
-            conn.setConnectTimeout(configService.getHttpConnectTimeout());
-            conn.setReadTimeout(configService.getHttpReadTimeout());
-
-            try (InputStream in = conn.getInputStream();
-                    OutputStream out = Files.newOutputStream(cachedFile)) {
-                in.transferTo(out);
-            }
-
-            long fileSize = Files.size(cachedFile);
-            logger.info("Cached image: {} ({} bytes)", filename, fileSize);
-
-            // Trigger cleanup if cache is getting large
-            if (getCacheSize() > configService.getCacheCleanupThreshold()) {
-                cleanupIfNeeded();
-            }
-
-            return cachedFile.toUri().toString();
-
-        } catch (Exception e) {
-            logger.error("Failed to download image: {}", e.getMessage());
-            return null;
         }
+
+        logger.error("Failed to download image after {} attempts: {}", maxRetries + 1, lastException.getMessage());
+        return null;
+    }
+
+    private void removeWatermark(Path file) throws IOException {
+        BufferedImage original = ImageIO.read(file.toFile());
+        if (original == null)
+            return; // Not an image format we understand
+
+        int cropHeight = configService.getImageWatermarkCropBottomPixels();
+        if (original.getHeight() <= cropHeight)
+            return;
+
+        // Crop bottom
+        BufferedImage cropped = original.getSubimage(0, 0, original.getWidth(), original.getHeight() - cropHeight);
+
+        // Write back (assuming PNG as we force .png extension)
+        ImageIO.write(cropped, "png", file.toFile());
+        logger.info("Removed watermark from {} (cropped {}px)", file.getFileName(), cropHeight);
     }
 
     /**

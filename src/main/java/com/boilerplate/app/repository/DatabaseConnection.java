@@ -1,6 +1,6 @@
 package com.boilerplate.app.repository;
 
-import com.boilerplate.app.service.ConfigService;
+import com.boilerplate.app.config.AppConfig;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.apache.logging.log4j.LogManager;
@@ -25,10 +25,10 @@ public class DatabaseConnection {
         createTablesIfNotExist();
     }
 
-    // NOTE: configure() method removed as it's no longer needed with ConfigService
+    // NOTE: configure() method removed as it's no longer needed with AppConfig
 
     private void initializePool() {
-        ConfigService configService = ConfigService.getInstance();
+        AppConfig configService = AppConfig.getInstance();
         HikariConfig config = new HikariConfig();
 
         String host = configService.getDbHost();
@@ -78,13 +78,15 @@ public class DatabaseConnection {
     }
 
     /**
-     * Shutdown the connection pool.
+     * Shutdown the connection pool and reset singleton.
      */
-    public static void shutdown() {
+    public static synchronized void shutdown() {
         if (dataSource != null && !dataSource.isClosed()) {
             dataSource.close();
             logger.info("Database connection pool closed.");
         }
+        dataSource = null;
+        instance = null;
     }
 
     /**

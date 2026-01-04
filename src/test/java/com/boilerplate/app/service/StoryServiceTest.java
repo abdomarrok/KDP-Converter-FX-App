@@ -2,6 +2,7 @@ package com.boilerplate.app.service;
 
 import com.boilerplate.app.model.Scene;
 import com.boilerplate.app.model.Story;
+import com.boilerplate.app.repository.SettingsRepository;
 import com.boilerplate.app.repository.StoryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,13 +30,14 @@ class StoryServiceTest {
     @Mock
     private StoryRepository storyRepository;
 
+    @Mock
+    private SettingsRepository settingsRepository;
+
     private StoryService storyService;
 
     @BeforeEach
     void setUp() {
-        storyService = new StoryService();
-        // Note: In a real DI setup, we'd inject the mock repository
-        // For now, we're testing the service logic as-is
+        storyService = new StoryService(storyRepository, settingsRepository);
     }
 
     @Test
@@ -97,19 +99,22 @@ class StoryServiceTest {
 
         // When
         storyService.saveLastUrl(testUrl);
-        String retrieved = storyService.getLastUrl();
 
         // Then
-        assertThat(retrieved).isEqualTo(testUrl);
+        verify(settingsRepository).saveSetting("last_url", testUrl);
     }
 
     @Test
-    void testGetLastUrl_whenNotSet_shouldReturnEmpty() {
+    void testGetLastUrl_shouldReturnFromRepo() {
+        // Given
+        String expectedUrl = "https://example.com";
+        when(settingsRepository.getSetting("last_url", "")).thenReturn(expectedUrl);
+
         // When
         String url = storyService.getLastUrl();
 
         // Then
-        assertThat(url).isNotNull();
+        assertThat(url).isEqualTo(expectedUrl);
     }
 
     // Helper methods
@@ -120,7 +125,7 @@ class StoryServiceTest {
         scenes.add(new Scene("The hero ventured forth.", "image2.jpg"));
 
         Story story = new Story("Test Story", "Test Author", scenes);
-        story.setSourceUrl("https://gemini.google.com/share/test");
+        // story.setSourceUrl(...) removed as it's not in the model
         return story;
     }
 }

@@ -637,6 +637,22 @@ public class MainController {
             return;
         }
 
+        if (currentStory.getTitle() == null || currentStory.getTitle().trim().isEmpty()) {
+            ErrorDialog.showError(
+                    "Validation Error",
+                    "Missing Title",
+                    "Please provide a title for the story before saving.");
+            return;
+        }
+
+        if (currentStory.getScenes() == null || currentStory.getScenes().isEmpty()) {
+            ErrorDialog.showError(
+                    "Validation Error",
+                    "No Content",
+                    "The story is empty. Please add scenes before saving.");
+            return;
+        }
+
         javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
             @Override
             protected Void call() throws Exception {
@@ -669,7 +685,7 @@ public class MainController {
         storyService.getAllStoriesAsync()
                 .thenAccept(stories -> Platform.runLater(() -> {
                     if (stories.isEmpty()) {
-                        com.boilerplate.app.util.ErrorHandler.showInfo(
+                        ErrorDialog.showInfo(
                                 "No Stories Found",
                                 "No saved stories found. Extract a story first to save it.");
                         return;
@@ -682,11 +698,10 @@ public class MainController {
                 .exceptionally(throwable -> {
                     Platform.runLater(() -> {
                         logger.error("Failed to load stories", throwable);
-                        com.boilerplate.app.util.ErrorHandler.showError(
+                        ErrorDialog.showError(
                                 "Load Failed",
                                 "Failed to load saved stories",
-                                "An error occurred while loading stories from the database.",
-                                throwable);
+                                "An error occurred while loading stories from the database.");
                     });
                     return null;
                 });
@@ -706,7 +721,7 @@ public class MainController {
     @FXML
     private void handleGeneratePdf() {
         if (currentStory == null) {
-            com.boilerplate.app.util.ErrorHandler.showError(
+            ErrorDialog.showError(
                     "No Story Loaded",
                     "Cannot generate PDF",
                     "Please extract or load a story first.");
@@ -753,14 +768,14 @@ public class MainController {
                 }
 
                 updateStatus("❌ PDF generation failed");
-                com.boilerplate.app.util.ErrorHandler.showError(
+                updateStatus("❌ PDF generation failed");
+                ErrorDialog.showError(
                         "PDF Generation Failed",
                         "Failed to generate PDF",
-                        cause.getMessage(),
-                        cause);
+                        cause.getMessage());
             } else if (pdfTask.isDone()) {
                 updateStatus("✅ Saved PDF: " + file.getName());
-                com.boilerplate.app.util.ErrorHandler.showInfo(
+                ErrorDialog.showInfo(
                         "PDF Generated",
                         "PDF successfully saved to:\n" + file.getAbsolutePath());
             }
@@ -770,7 +785,7 @@ public class MainController {
     @FXML
     private void handlePreviewPdf() {
         if (currentStory == null) {
-            com.boilerplate.app.util.ErrorHandler.showError(
+            ErrorDialog.showError(
                     "No Story Loaded",
                     "Cannot preview PDF",
                     "Please extract or load a story first.");

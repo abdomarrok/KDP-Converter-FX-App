@@ -23,8 +23,12 @@ public class StoryService {
     private final SettingsRepository settingsRepository;
 
     public StoryService() {
-        this.storyRepository = new StoryRepository();
-        this.settingsRepository = new SettingsRepository();
+        this(new StoryRepository(), new SettingsRepository());
+    }
+
+    public StoryService(StoryRepository storyRepository, SettingsRepository settingsRepository) {
+        this.storyRepository = storyRepository;
+        this.settingsRepository = settingsRepository;
     }
 
     /**

@@ -2,7 +2,7 @@ package com.boilerplate.app.repository;
 
 import ch.vorburger.mariadb4j.DB;
 import ch.vorburger.mariadb4j.DBConfigurationBuilder;
-import com.boilerplate.app.service.ConfigService;
+import com.boilerplate.app.config.AppConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -30,8 +30,8 @@ public class EmbeddedDatabase {
      * Start the embedded database.
      */
     public void startDatabase() throws Exception {
-        // Configure ConfigService to use embedded database
-        ConfigService configService = ConfigService.getInstance();
+        // Configure AppConfig to use embedded database
+        AppConfig configService = AppConfig.getInstance();
         configService.setProperty("db.host", "localhost");
         configService.setProperty("db.port", String.valueOf(port));
         configService.setProperty("db.name", "storyforge");

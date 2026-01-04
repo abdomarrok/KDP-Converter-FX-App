@@ -1,101 +1,56 @@
 package com.boilerplate.app.model;
 
 import org.junit.jupiter.api.Test;
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Additional tests for Scene model using AssertJ.
- */
 class SceneTest {
 
     @Test
     void testSceneCreation() {
-        // When
-        Scene scene = new Scene();
+        Scene scene = new Scene("Test text", "image.jpg", 800, 600);
 
-        // Then
-        assertThat(scene.getText()).isNull();
-        assertThat(scene.getImageUrl()).isNull();
-    }
-
-    @Test
-    void testSceneWithData() {
-        // Given
-        String text = "Once upon a time...";
-        String imageUrl = "image.jpg";
-
-        // When
-        Scene scene = new Scene(text, imageUrl);
-
-        // Then
-        assertThat(scene.getText()).isEqualTo(text);
-        assertThat(scene.getImageUrl()).isEqualTo(imageUrl);
+        assertThat(scene.getText()).isEqualTo("Test text");
+        assertThat(scene.getImageUrl()).isEqualTo("image.jpg");
+        assertThat(scene.getImageWidth()).isEqualTo(800);
+        assertThat(scene.getImageHeight()).isEqualTo(600);
     }
 
     @Test
     void testSceneSetters() {
-        // Given
         Scene scene = new Scene();
-
-        // When
         scene.setText("New text");
-        scene.setImageUrl("new-image.jpg");
-        scene.setImagePath("/path/to/image.jpg");
-        scene.setPageNumber(1);
+        scene.setImageUrl("new.jpg");
+        scene.setImageWidth(1024);
+        scene.setImageHeight(768);
 
-        // Then
         assertThat(scene.getText()).isEqualTo("New text");
-        assertThat(scene.getImageUrl()).isEqualTo("new-image.jpg");
-        assertThat(scene.getImagePath()).isEqualTo("/path/to/image.jpg");
-        assertThat(scene.getPageNumber()).isEqualTo(1);
+        assertThat(scene.getImageUrl()).isEqualTo("new.jpg");
+        assertThat(scene.getImageWidth()).isEqualTo(1024);
+        assertThat(scene.getImageHeight()).isEqualTo(768);
     }
 
     @Test
-    void testSceneValidation_emptyText() {
-        // Given
-        Scene scene = new Scene("", "image.jpg");
+    void testEquality() {
+        Scene scene1 = new Scene("text", "img.jpg");
+        Scene scene2 = new Scene("text", "img.jpg");
+        Scene scene3 = new Scene("other", "img.jpg");
 
-        // Then
-        assertThat(scene.getText()).isEmpty();
-    }
-
-    @Test
-    void testSceneValidation_nullImageUrl() {
-        // Given
-        Scene scene = new Scene("Some text", null);
-
-        // Then
-        assertThat(scene.getImageUrl()).isNull();
-    }
-
-    @Test
-    void testSceneEquality() {
-        // Given
-        Scene scene1 = new Scene("Text", "image.jpg");
-        scene1.setId(1);
-
-        Scene scene2 = new Scene("Text", "image.jpg");
-        scene2.setId(1);
-
-        Scene scene3 = new Scene("Different", "other.jpg");
-        scene3.setId(2);
-
-        // Then
         assertThat(scene1).isEqualTo(scene2);
         assertThat(scene1).isNotEqualTo(scene3);
+        assertThat(scene1.hashCode()).isEqualTo(scene2.hashCode());
     }
 
     @Test
-    void testSceneToString() {
-        // Given
-        Scene scene = new Scene("Test text", "test.jpg");
-        scene.setPageNumber(1);
+    void testToString() {
+        Scene scene = new Scene("Short text", "img.jpg");
+        assertThat(scene.toString()).contains("Short text", "img.jpg");
+    }
 
-        // When
-        String result = scene.toString();
-
-        // Then
-        assertThat(result).contains("Scene");
-        assertThat(result).contains("Test text");
+    @Test
+    void testToStringTruncation() {
+        String longText = "This is a very long text that should be truncated in the string representation";
+        Scene scene = new Scene(longText, "img.jpg");
+        assertThat(scene.toString()).contains("This is a very long"); // First 20 chars
+        assertThat(scene.toString()).contains("...");
     }
 }

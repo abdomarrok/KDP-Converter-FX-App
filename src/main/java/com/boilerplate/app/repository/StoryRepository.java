@@ -188,8 +188,8 @@ public class StoryRepository {
         }
 
         try {
-            // Use unified cache directory from ConfigService
-            Path cachePath = com.boilerplate.app.service.ConfigService.getInstance().getCacheDirectory();
+            // Use unified cache directory from AppConfig
+            Path cachePath = com.boilerplate.app.config.AppConfig.getInstance().getCacheDirectoryPath();
             if (!Files.exists(cachePath)) {
                 Files.createDirectories(cachePath);
             }
