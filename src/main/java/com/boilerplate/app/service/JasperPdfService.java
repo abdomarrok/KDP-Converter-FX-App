@@ -148,8 +148,8 @@ public class JasperPdfService {
 
             if (imageElement != null && textElement != null) {
                 if ("FULL_PAGE_IMAGE".equals(layoutName)) {
-                    // 85% image, 15% text space
-                    int imgH = (int) (availableHeight * 0.85);
+                    // Maximum image size
+                    int imgH = (int) (availableHeight * 0.90);
                     imageElement.setY(0);
                     imageElement.setHeight(imgH);
 
@@ -165,33 +165,72 @@ public class JasperPdfService {
                     textElement.setHeight(availableHeight);
 
                 } else if ("SIDEBAR_IMAGE".equals(layoutName)) {
-                    // Image Left, Text Right
-                    int imgW = (int) (columnWidth * 0.4);
-                    int textW = columnWidth - imgW - 10;
+                    // Side-by-side
+                    int imgW = (int) (columnWidth * 0.45);
+                    int textW = columnWidth - imgW - 15;
 
                     imageElement.setX(0);
                     imageElement.setY(0);
                     imageElement.setWidth(imgW);
                     imageElement.setHeight(availableHeight);
 
-                    textElement.setX(imgW + 10);
+                    textElement.setX(imgW + 15);
                     textElement.setY(0);
                     textElement.setWidth(textW);
                     textElement.setHeight(availableHeight);
 
                 } else {
-                    // TOP_IMAGE_TEXT_BELOW (Default)
-                    int imgH = (int) (availableHeight * 0.55); // 55/45 split
+                    // TOP_IMAGE_TEXT_BELOW (Default) - Smart Logic
+                    // We need to support both Landscape and Portrait layouts optimally.
+                    // Instead of resizing the single elements, we will clone them to create two
+                    // sets.
 
-                    imageElement.setX(0);
-                    imageElement.setY(0);
-                    imageElement.setWidth(columnWidth);
-                    imageElement.setHeight(imgH);
+                    // 1. Remove original elements from band to avoid duplication/confusion
+                    detailBand.removeElement(imageElement);
+                    detailBand.removeElement(textElement);
 
-                    textElement.setX(0);
-                    textElement.setY(imgH + 10);
-                    textElement.setWidth(columnWidth);
-                    textElement.setHeight(availableHeight - imgH - 10);
+                    // Expression: Is Landscape? (Default to true if null)
+                    String isLandscapeExpr = "($F{imageWidth} == null || $F{imageHeight} == null) ? true : ($F{imageWidth} >= $F{imageHeight})";
+                    String isPortraitExpr = "($F{imageWidth} != null && $F{imageHeight} != null) && ($F{imageHeight} > $F{imageWidth})";
+
+                    // --- SET 1: LANDSCAPE (Standard 55/45 split) ---
+                    int landImgH = (int) (availableHeight * 0.55);
+
+                    JRDesignImage imgLand = (JRDesignImage) imageElement.clone();
+                    imgLand.setUUID(java.util.UUID.randomUUID());
+                    imgLand.setY(0);
+                    imgLand.setHeight(landImgH);
+                    imgLand.setPrintWhenExpression(new JRDesignExpression(isLandscapeExpr));
+
+                    JRDesignTextField txtLand = (JRDesignTextField) textElement.clone();
+                    txtLand.setUUID(java.util.UUID.randomUUID());
+                    txtLand.setY(landImgH + 10);
+                    txtLand.setHeight(availableHeight - landImgH - 10);
+                    txtLand.setPrintWhenExpression(new JRDesignExpression(isLandscapeExpr));
+
+                    // --- SET 2: PORTRAIT (Taller 85/15 split) ---
+                    // Portrait images need more vertical space to avoid looking tiny
+                    int portImgH = (int) (availableHeight * 0.85);
+
+                    JRDesignImage imgPort = (JRDesignImage) imageElement.clone();
+                    imgPort.setUUID(java.util.UUID.randomUUID());
+                    imgPort.setY(0);
+                    imgPort.setHeight(portImgH);
+                    imgPort.setPrintWhenExpression(new JRDesignExpression(isPortraitExpr));
+
+                    JRDesignTextField txtPort = (JRDesignTextField) textElement.clone();
+                    txtPort.setUUID(java.util.UUID.randomUUID());
+                    txtPort.setY(portImgH + 10);
+                    txtPort.setHeight(availableHeight - portImgH - 10);
+                    txtPort.setPrintWhenExpression(new JRDesignExpression(isPortraitExpr));
+
+                    // Add all to band
+                    detailBand.addElement(imgLand);
+                    detailBand.addElement(txtLand);
+                    detailBand.addElement(imgPort);
+                    detailBand.addElement(txtPort);
+
+                    logger.info("Applied Smart Layout: Landscape ({}%) / Portrait ({}%)", 55, 85);
                 }
             }
         }

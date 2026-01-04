@@ -115,10 +115,20 @@ public class DatabaseConnection {
                             text TEXT,
                             image_url TEXT, -- Original URL/Filename reference
                             image_data LONGBLOB, -- Actual image binary
+                            image_width INT DEFAULT 0,
+                            image_height INT DEFAULT 0,
                             FOREIGN KEY (story_id) REFERENCES stories(id) ON DELETE CASCADE
                         )
                     """;
             stmt.execute(createScenesTable);
+
+            // Schema Migration: Ensure columns exist for existing tables
+            try {
+                stmt.execute("ALTER TABLE scenes ADD COLUMN IF NOT EXISTS image_width INT DEFAULT 0");
+                stmt.execute("ALTER TABLE scenes ADD COLUMN IF NOT EXISTS image_height INT DEFAULT 0");
+            } catch (SQLException e) {
+                logger.warn("Failed to add columns (might already exist or dialect mismatch): {}", e.getMessage());
+            }
 
             // Settings table for key-value storage (e.g. last URL)
             String createSettingsTable = """

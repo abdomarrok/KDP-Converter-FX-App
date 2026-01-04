@@ -1,8 +1,11 @@
+
 package com.boilerplate.app.model;
 
 public class Scene {
     private String text;
     private String imageUrl;
+    private int imageWidth;
+    private int imageHeight;
 
     public Scene() {
     }
@@ -10,6 +13,13 @@ public class Scene {
     public Scene(String text, String imageUrl) {
         this.text = text;
         this.imageUrl = imageUrl;
+    }
+
+    public Scene(String text, String imageUrl, int imageWidth, int imageHeight) {
+        this.text = text;
+        this.imageUrl = imageUrl;
+        this.imageWidth = imageWidth;
+        this.imageHeight = imageHeight;
     }
 
     public String getText() {
@@ -28,11 +38,27 @@ public class Scene {
         this.imageUrl = imageUrl;
     }
 
+    public int getImageWidth() {
+        return imageWidth;
+    }
+
+    public void setImageWidth(int imageWidth) {
+        this.imageWidth = imageWidth;
+    }
+
+    public int getImageHeight() {
+        return imageHeight;
+    }
+
+    public void setImageHeight(int imageHeight) {
+        this.imageHeight = imageHeight;
+    }
+
     @Override
     public String toString() {
         return "Scene{" +
-                "text='" + (text != null && text.length() > 20 ? text.substring(0, 20) + "..." : text) + '\'' +
-                ", hasImage=" + (imageUrl != null && !imageUrl.isEmpty()) +
+                "text='" + (text != null ? text.substring(0, Math.min(text.length(), 20)) + "..." : "null") + '\'' +
+                ", imageUrl='" + imageUrl + '\'' +
                 '}';
     }
 

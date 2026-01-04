@@ -103,7 +103,7 @@ public class StoryRepository {
     }
 
     private void insertScenes(Connection conn, int storyId, List<Scene> scenes) throws SQLException {
-        String sql = "INSERT INTO scenes (story_id, scene_index, text, image_url, image_data) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO scenes (story_id, scene_index, text, image_url, image_data, image_width, image_height) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             int index = 0;
@@ -119,6 +119,10 @@ public class StoryRepository {
                 } else {
                     stmt.setNull(5, Types.BLOB);
                 }
+
+                stmt.setInt(6, scene.getImageWidth());
+                stmt.setInt(7, scene.getImageHeight());
+
                 stmt.addBatch();
             }
             stmt.executeBatch();
@@ -163,7 +167,11 @@ public class StoryRepository {
                     String storedUrl = rs.getString("image_url");
                     byte[] blobData = rs.getBytes("image_data");
                     String finalUrl = restoreImageFromBlob(storyId, rs.getInt("scene_index"), storedUrl, blobData);
-                    scenes.add(new Scene(rs.getString("text"), finalUrl));
+
+                    int width = rs.getInt("image_width");
+                    int height = rs.getInt("image_height");
+
+                    scenes.add(new Scene(rs.getString("text"), finalUrl, width, height));
                 }
             }
         }
@@ -180,17 +188,24 @@ public class StoryRepository {
         }
 
         try {
-            File cacheDir = new File(System.getProperty("user.home"), APP_CACHE_DIR);
-            if (!cacheDir.exists() && !cacheDir.mkdirs()) {
-                return originalUrl;
+            // Use unified cache directory from ConfigService
+            Path cachePath = com.boilerplate.app.service.ConfigService.getInstance().getCacheDirectory();
+            if (!Files.exists(cachePath)) {
+                Files.createDirectories(cachePath);
             }
 
             // Simple caching strategy using hash of data or ID combination
             // Using ID combo ensures uniqueness per scene version
             String filename = "img_" + storyId + "_" + sceneIndex + ".png";
-            File imageFile = new File(cacheDir, filename);
+            File imageFile = cachePath.resolve(filename).toFile();
 
-            // Write only if needed? For now, always write to ensure it exists
+            // Optimization: Skip writing if file exists and size matches
+            if (imageFile.exists() && imageFile.length() == blobData.length) {
+                // logger.debug("Image already restored: {}", filename);
+                return imageFile.toURI().toString();
+            }
+
+            // Write to file
             try (FileOutputStream fos = new FileOutputStream(imageFile)) {
                 fos.write(blobData);
             }

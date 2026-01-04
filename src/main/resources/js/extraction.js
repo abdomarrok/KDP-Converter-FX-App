@@ -1,27 +1,27 @@
-(function() {
+(function () {
     // Redirect console to Java
     var oldLog = console.log;
     var oldErr = console.error;
-    console.log = function(msg) {
+    console.log = function (msg) {
         if (oldLog) oldLog(msg);
-        if(window.javaApp && window.javaApp.log) window.javaApp.log("INFO: " + msg);
+        if (window.javaApp && window.javaApp.log) window.javaApp.log("INFO: " + msg);
     };
-    console.error = function(msg) {
+    console.error = function (msg) {
         if (oldErr) oldErr(msg);
-        if(window.javaApp && window.javaApp.log) window.javaApp.log("ERROR: " + msg);
+        if (window.javaApp && window.javaApp.log) window.javaApp.log("ERROR: " + msg);
     };
 
     console.log("=== Gemini Storybook Extractor v3.0 (Automated) ===");
 
     // ========== CORE EXTRACTION FUNCTION ==========
     function extractGeminiStorybookPage() {
-        var visiblePages = Array.from(document.querySelectorAll('storybook-page')).filter(function(el) {
+        var visiblePages = Array.from(document.querySelectorAll('storybook-page')).filter(function (el) {
             var style = window.getComputedStyle(el);
             var rect = el.getBoundingClientRect();
             return style.visibility === 'visible' &&
-                   rect.width > 0 &&
-                   rect.right > 0 &&
-                   rect.left < window.innerWidth;
+                rect.width > 0 &&
+                rect.right > 0 &&
+                rect.left < window.innerWidth;
         });
 
         // KEY: Use LAST visible element (current page is rendered last in DOM)
@@ -35,13 +35,22 @@
         var text = textEl ? textEl.textContent.trim() : "";
 
         var imgEl = activePage.querySelector('img[src*="googleusercontent"]') ||
-                    activePage.querySelector('.storybook-image img') ||
-                    activePage.querySelector('img');
+            activePage.querySelector('.storybook-image img') ||
+            activePage.querySelector('img');
         var imageUrl = imgEl && imgEl.src && imgEl.src.startsWith("http") ? imgEl.src : null;
+
+        var width = 0;
+        var height = 0;
+        if (imageUrl && imgEl) {
+            width = imgEl.naturalWidth || imgEl.width || 0;
+            height = imgEl.naturalHeight || imgEl.height || 0;
+        }
 
         return {
             text: text,
             imageUrl: imageUrl,
+            imageWidth: width,
+            imageHeight: height,
             textLength: text.length
         };
     }
@@ -50,9 +59,9 @@
     function extractAllPages() {
         var delayMs = 2000;
         var results = [];
-        var sleep = function(ms) { return new Promise(function(r) { setTimeout(r, ms); }); };
-        var nextBtn = function() { return document.querySelector('button[aria-label="Next page"]'); };
-        var prevBtn = function() { return document.querySelector('button[aria-label="Previous page"]'); };
+        var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+        var nextBtn = function () { return document.querySelector('button[aria-label="Next page"]'); };
+        var prevBtn = function () { return document.querySelector('button[aria-label="Previous page"]'); };
 
         console.log("Starting automated extraction...");
 
@@ -63,7 +72,7 @@
             var rewindCount = 0;
             function doRewind() {
                 if (rewindCount >= 50 || !prevBtn() || prevBtn().disabled) {
-                    return sleep(delayMs).then(function() {
+                    return sleep(delayMs).then(function () {
                         console.log("Rewind complete");
                     });
                 }
@@ -83,7 +92,7 @@
                 return Promise.resolve(results);
             }
 
-            return sleep(delayMs).then(function() {
+            return sleep(delayMs).then(function () {
                 var data = extractGeminiStorybookPage();
 
                 console.log("Page " + (pageNum + 1) + ": " + data.textLength + " chars, image: " + (data.imageUrl ? "YES" : "NO"));
@@ -120,10 +129,10 @@
 
         // Start the extraction chain
         return rewindToStart()
-            .then(function() {
+            .then(function () {
                 return extractPage(0, null, 0);
             })
-            .then(function(finalResults) {
+            .then(function (finalResults) {
                 console.log("Extraction complete: " + finalResults.length + " scenes");
 
                 var story = {
@@ -144,7 +153,7 @@
     }
 
     // Start extraction
-    extractAllPages().catch(function(err) {
+    extractAllPages().catch(function (err) {
         console.error("Extraction failed: " + err);
         if (window.javaApp && window.javaApp.processStory) {
             window.javaApp.processStory(JSON.stringify({
