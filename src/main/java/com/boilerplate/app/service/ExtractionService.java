@@ -52,7 +52,7 @@ public class ExtractionService extends Service<Story> {
                 // Wait for extraction to complete (with timeout)
                 synchronized (lock) {
                     try {
-                        lock.wait(120000); // 120 second timeout
+                        lock.wait(300000); // 300 second timeout
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException("Extraction interrupted", e);

@@ -156,13 +156,21 @@ public class WebViewParser {
      * Injects JavaScript extraction agent into the page.
      * The JavaScript uses robust selectors and content stabilization.
      */
+    // Strong reference to prevent GC of the bridge during extraction
+    private JavaBridge activeBridge;
+
+    /**
+     * Injects JavaScript extraction agent into the page.
+     * The JavaScript uses robust selectors and content stabilization.
+     */
     private void executeExtractionAgent(WebEngine webEngine, Consumer<Story> wrappedCallback,
             Consumer<Story> originalCallback, Consumer<Story> onRefresh) {
         logger.info("Injecting extraction agent");
 
         // Set up Java ↔ JavaScript bridge
+        this.activeBridge = new JavaBridge(wrappedCallback, originalCallback, onRefresh, objectMapper);
         JSObject window = (JSObject) webEngine.executeScript("window");
-        window.setMember("javaApp", new JavaBridge(wrappedCallback, originalCallback, onRefresh, objectMapper));
+        window.setMember("javaApp", this.activeBridge);
 
         // Inject hardened extraction script
         webEngine.executeScript(buildExtractionScript());
@@ -174,372 +182,164 @@ public class WebViewParser {
      */
     private String buildExtractionScript() {
         return """
-                    (function() {
-                        // Redirect console to Java
-                        var oldLog = console.log;
-                        var oldErr = console.error;
-                        console.log = function(msg) {
-                            if (oldLog) oldLog(msg);
-                            if(window.javaApp && window.javaApp.log) window.javaApp.log("INFO: " + msg);
-                        };
-                        console.error = function(msg) {
-                            if (oldErr) oldErr(msg);
-                            if(window.javaApp && window.javaApp.log) window.javaApp.log("ERROR: " + msg);
-                        };
-
-                        console.log("=== Gemini Story Extractor v2.0 (Production) ===");
-
-                        // ========== HELPER FUNCTIONS ==========
-
-                        /**
-                         * Extract title with multiple fallback selectors
-                         */
-                        function extractTitle() {
-                            var selectors = [
-                                '.cover-title',
-                                'h1.story-title',
-                                '.storybook-title',
-                                '[data-story-title]',
-                                'h1',
-                                '.model-response-text h1'
-                            ];
-
-                            for (var i = 0; i < selectors.length; i++) {
-                                var el = document.querySelector(selectors[i]);
-                                if (el && el.innerText && el.innerText.trim()) {
-                                    console.log("Title found with selector: " + selectors[i]);
-                                    return el.innerText.trim();
-                                }
-                            }
-
-                            console.log("No title found, using default");
-                            return 'Untitled Story';
-                        }
-
-                        /**
-                         * Find story layers with fallback strategies
-                         */
-                        function findStoryLayers() {
-                            // Primary: storybook-page-layer elements
-                            var layers = document.querySelectorAll('storybook-page-layer');
-                            if (layers.length > 0) {
-                                console.log("Found " + layers.length + " storybook-page-layer elements");
-                                return Array.from(layers);
-                            }
-
-                            // Fallback 1: Elements with story-related classes
-                            layers = document.querySelectorAll('[class*="story"], [class*="page-layer"]');
-                            if (layers.length > 0) {
-                                console.log("Found " + layers.length + " story-class elements");
-                                return Array.from(layers);
-                            }
-
-                            // Fallback 2: Divs containing both images and substantial text
-                            var allDivs = document.querySelectorAll('div');
-                            var candidates = Array.from(allDivs).filter(function(div) {
-                                var hasImage = div.querySelector('img') !== null;
-                                var hasText = div.textContent.trim().length > 20;
-                                return hasImage || hasText;
-                            });
-
-                            console.log("Found " + candidates.length + " content-rich divs");
-                            return candidates;
-                        }
-
-                        /**
-                         * Validate if an image URL is a story image (not icon/avatar/UI)
-                         */
-                        function isValidStoryImage(imgUrl) {
-                            if (!imgUrl || imgUrl.length < 50) return false;
-
-                            var excludePatterns = [
-                                'profile',
-                                'avatar',
-                                'icon',
-                                'logo',
-                                'button',
-                                'emoji',
-                                '/u/',
-                                'thumbnail',
-                                'placeholder',
-                                'spinner',
-                                'loading'
-                            ];
-
-                            var urlLower = imgUrl.toLowerCase();
-                            for (var i = 0; i < excludePatterns.length; i++) {
-                                if (urlLower.includes(excludePatterns[i])) {
-                                    return false;
-                                }
-                            }
-
-                            // Must be HTTP(S) and reasonable length
-                            return imgUrl.startsWith('http') && imgUrl.length < 500;
-                        }
-
-                        /**
-                         * Extract text from a layer with multiple selector attempts
-                         */
-                        function extractTextFromLayer(layer) {
-                            var selectors = [
-                                '.story-text',
-                                '.text-content',
-                                'p',
-                                '[class*="text"]'
-                            ];
-
-                            for (var i = 0; i < selectors.length; i++) {
-                                var el = layer.querySelector(selectors[i]);
-                                if (el && el.textContent.trim()) {
-                                    return el.textContent.trim();
-                                }
-                            }
-
-                            // Last resort: direct text content if substantial
-                            var directText = layer.textContent.trim();
-                            return directText.length > 10 ? directText : '';
-                        }
-
-                        /**
-                         * Capture image element as Base64 data URL.
-                         * Solves authentication issues with Gemini images.
-                         */
-                        function captureImageAsDataURL(imgElement) {
-                            try {
-                                var canvas = document.createElement('canvas');
-                                canvas.width = imgElement.naturalWidth || imgElement.width || 400;
-                                canvas.height = imgElement.naturalHeight || imgElement.height || 400;
-                                var ctx = canvas.getContext('2d');
-                                ctx.drawImage(imgElement, 0, 0);
-                                return canvas.toDataURL('image/png');
-                            } catch (error) {
-                                console.error("Failed to capture image: " + error.message);
-                                return null;
-                            }
-                        }
-
-                        /**
-                         * Extract image URL from a layer with multiple selector attempts.
-                         * Returns original URL for Java-side authenticated download.
-                         */
-                        function extractImageFromLayer(layer) {
-                            var selectors = [
-                                '.storybook-image img',
-                                '.story-image img',
-                                'img.story',
-                                'img'
-                            ];
-
-                            for (var i = 0; i < selectors.length; i++) {
-                                var img = layer.querySelector(selectors[i]);
-                                if (img && img.complete && img.naturalHeight > 0) {
-                                    if (isValidStoryImage(img.src)) {
-                                        console.log("Found valid image: " + img.src.substring(0, 60) + "...");
-                                        return img.src;  // Return URL directly
-                                    }
-                                }
-                            }
-
-                            return null;
-                        }
-
-                        /**
-                         * Navigate through all storybook pages by clicking "Next page" button
-                         * Gemini storybook is PAGINATED, not scrollable!
-                         */
-
-
-
-                        // Guard
-                        if (window.__storyExtractorRunning) return;
-                        window.__storyExtractorRunning = true;
-
-                        function navigateAllPagesAndExtract(completion) {
-                            console.log("Starting AGGRESSIVE navigation...");
-
-                            var collectedScenes = [];
-                            var sameTextCount = 0;
-                            var pageCount = 0;
-                            var maxPages = 50;
-
-
-                            function extractAndMove() {
-                                // Helper to find TRULY visible element (not just in DOM)
-                                function getVisible(selector) {
-                                    var els = Array.from(document.querySelectorAll(selector));
-                                    return els.find(function(el) {
-                                        if (!el.offsetParent) return false; // Element or ancestor is display:none
-
-                                        var rect = el.getBoundingClientRect();
-                                        if (rect.width === 0 || rect.height === 0) return false;
-
-                                        var style = window.getComputedStyle(el);
-                                        if (style.visibility === 'hidden' || style.opacity === '0') return false;
-
-                                        // Check if element is in viewport (visible on screen)
-                                        if (rect.bottom < 0 || rect.top > window.innerHeight) return false;
-                                        if (rect.right < 0 || rect.left > window.innerWidth) return false;
-
-                                        return true;
-                                    });
-                                }
-
-                                // 1. Extract from VISIBLE elements
-                                var imgEl = getVisible('div.storybook-image img') ||
-                                            getVisible('storybook-page img') ||
-                                            getVisible('img[src*="googleusercontent"]'); // Fallback
-
-                                var imageUrl = (imgEl && imgEl.src && imgEl.src.startsWith('http')) ? imgEl.src : null;
-
-                                var textEl = getVisible('div.story-text-container') ||
-                                             getVisible('[class*="story-text"]') ||
-                                             getVisible('p'); // Broad fallback if specific container missing
-
-                                var text = textEl ? textEl.textContent.trim() : "";
-
-                                console.log("Scanning Page " + (pageCount+1) + " [" + (imageUrl?"IMG":"") + " " + (text?"TXT":"") + "]");
-                                console.log("Text preview: " + (text ? text.substring(0, 30) + "..." : "EMPTY"));
-                                console.log("Image URL: " + (imageUrl ? imageUrl.substring(0, 50) + "..." : "NONE"));
-
-
-                                // 2. Check for End (Stuck detection)
-                                // If Text AND Image are identical to the previous capture, we are stuck/done.
-                                var isSameAsLast = (
-                                    collectedScenes.length > 0 &&
-                                    text === collectedScenes[collectedScenes.length-1].text &&
-                                    imageUrl === collectedScenes[collectedScenes.length-1].imageUrl
-                                );
-
-                                if (collectedScenes.length > 0) {
-                                    console.log("Last scene text: " + (collectedScenes[collectedScenes.length-1].text ? collectedScenes[collectedScenes.length-1].text.substring(0, 30) + "..." : "EMPTY"));
-                                }
-
-                                if (isSameAsLast) {
-                                    sameTextCount++;
-                                    console.log("Content unchanged (" + sameTextCount + ")");
-                                    if (sameTextCount >= 3) {
-                                        console.log("Stuck on same content. Finished.");
-                                        finish();
-                                        return;
-                                    }
-                                } else {
-                                    sameTextCount = 0;
-                                    // Collect new scene
-                                    collectedScenes.push({ text: text, imageUrl: imageUrl });
-                                    console.log("Collected scene #" + collectedScenes.length);
-                                }
-
-                                if (pageCount >= maxPages) { finish(); return; }
-
-                                // 3. Find Next Button
-                                var nextBtn = document.querySelector('button[aria-label="Next page"]') ||
-                                              document.querySelector('[aria-label="Next page"]');
-
-                                if (!nextBtn) {
-                                    console.log("Next button GONE.");
-                                    finish();
-                                    return;
-                                }
-
-                                // 4. Click Next
-                                console.log("Clicking Next...");
-                                try { nextBtn.click(); } catch(e) { console.log("Click fail: " + e); }
-
-                                pageCount++;
-
-                                // 5. Wait longer for page transition (increased to 5s)
-                                setTimeout(extractAndMove, 5000);
-                            }
-
-                            function finish() {
-                                window.__storyExtractorRunning = false;
-                                completion(collectedScenes);
-                            }
-
-
-                            // Start
-                            rewindAndStart();
-
-                            function rewindAndStart() {
-                                console.log("Rewinding to start...");
-                                var attempts = 0;
-                                var maxRewinds = 30;
-
-                                function doRewind() {
-                                    // Try to find the Previous button
-                                    var prevBtn = document.querySelector('button[aria-label="Previous page"]') ||
-                                                  document.querySelector('[aria-label="Previous page"]');
-
-                                    // Check if we are at start (Previous disabled or missing)
-                                    var isStart = !prevBtn ||
-                                                  prevBtn.disabled ||
-                                                  prevBtn.classList.contains('mat-mdc-button-disabled') ||
-                                                  prevBtn.getAttribute('disabled') === 'true';
-
-                                    // Also check page indicator if available (e.g. "1 / 10")
-                                    var pageInd = document.body.innerText.match(/(\\d+)\\s*\\/\\s*\\d+/);
-                                    if (pageInd && pageInd[1] === '1') {
-                                        isStart = true;
-                                    }
-
-                                    if (isStart || attempts >= maxRewinds) {
-                                        console.log("Rewind done. Starting extraction.");
-                                        // Reset state
-                                        pageCount = 0;
-                                        collectedScenes = [];
-                                        setTimeout(extractAndMove, 1000); // Give time for Page 1 to settle
-                                        return;
-                                    }
-
-                                    // Click Previous
-                                    if (prevBtn) {
-                                        try { prevBtn.click(); } catch(e) {}
-                                    }
-                                    attempts++;
-                                    setTimeout(doRewind, 200); // Fast rewind (200ms)
-                                }
-                                doRewind();
-                            }
-                        }
-
-
-
-
-
-                        // ========== MAIN EXTRACTION LOGIC ==========
-                        // Use paginated navigation instead of scrolling
-                        navigateAllPagesAndExtract(function(collectedScenes) {
-                            console.log("Navigation complete. Building story...");
-
-                            try {
-                                // Extract title
-                                var title = extractTitle();
-
-                                console.log("Extraction complete: " + collectedScenes.length + " scenes");
-                                console.log("Scenes with images: " + collectedScenes.filter(function(s) { return s.imageUrl; }).length);
-
-                                // Build story object
-                                var story = {
-                                    title: title,
-                                    author: "Gemini",
-                                    scenes: collectedScenes
-                                };
-
-                                // Send to Java
-                                window.javaApp.processStory(JSON.stringify(story));
-
-                            } catch (error) {
-                                console.error("Extraction failed: " + error.message);
-                                window.javaApp.processStory(JSON.stringify({
-                                    title: "Error",
-                                    author: "System",
-                                    scenes: []
-                                }));
-                            }
+                (function() {
+                    // Redirect console to Java
+                    var oldLog = console.log;
+                    var oldErr = console.error;
+                    console.log = function(msg) {
+                        if (oldLog) oldLog(msg);
+                        if(window.javaApp && window.javaApp.log) window.javaApp.log("INFO: " + msg);
+                    };
+                    console.error = function(msg) {
+                        if (oldErr) oldErr(msg);
+                        if(window.javaApp && window.javaApp.log) window.javaApp.log("ERROR: " + msg);
+                    };
+
+                    console.log("=== Gemini Storybook Extractor v3.0 (Automated) ===");
+
+                    // ========== CORE EXTRACTION FUNCTION ==========
+                    function extractGeminiStorybookPage() {
+                        var visiblePages = Array.from(document.querySelectorAll('storybook-page')).filter(function(el) {
+                            var style = window.getComputedStyle(el);
+                            var rect = el.getBoundingClientRect();
+                            return style.visibility === 'visible' &&
+                                   rect.width > 0 &&
+                                   rect.right > 0 &&
+                                   rect.left < window.innerWidth;
                         });
 
+                        // KEY: Use LAST visible element (current page is rendered last in DOM)
+                        var activePage = visiblePages.length > 0 ? visiblePages[visiblePages.length - 1] : null;
 
-                    })();
+                        if (!activePage) {
+                            return { text: "", imageUrl: null, error: "No active page found" };
+                        }
+
+                        var textEl = activePage.querySelector('div.story-text-container');
+                        var text = textEl ? textEl.textContent.trim() : "";
+
+                        var imgEl = activePage.querySelector('img[src*="googleusercontent"]') ||
+                                    activePage.querySelector('.storybook-image img') ||
+                                    activePage.querySelector('img');
+                        var imageUrl = imgEl && imgEl.src && imgEl.src.startsWith("http") ? imgEl.src : null;
+
+                        return {
+                            text: text,
+                            imageUrl: imageUrl,
+                            textLength: text.length
+                        };
+                    }
+
+                    // ========== AUTOMATED EXTRACTION (NO ASYNC/AWAIT) ==========
+                    function extractAllPages() {
+                        var delayMs = 2000;
+                        var results = [];
+                        var sleep = function(ms) { return new Promise(function(r) { setTimeout(r, ms); }); };
+                        var nextBtn = function() { return document.querySelector('button[aria-label="Next page"]'); };
+                        var prevBtn = function() { return document.querySelector('button[aria-label="Previous page"]'); };
+
+                        console.log("Starting automated extraction...");
+
+                        // Jump to beginning using promises
+                        console.log("Rewinding to start...");
+
+                        function rewindToStart() {
+                            var rewindCount = 0;
+                            function doRewind() {
+                                if (rewindCount >= 50 || !prevBtn() || prevBtn().disabled) {
+                                    return sleep(delayMs).then(function() {
+                                        console.log("Rewind complete");
+                                    });
+                                }
+                                prevBtn().click();
+                                rewindCount++;
+                                return sleep(200).then(doRewind);
+                            }
+                            return doRewind();
+                        }
+
+                        // Extract pages recursively using promises
+                        function extractPage(pageNum, lastText, consecutiveDupes) {
+                            var maxPages = 50;
+
+                            if (pageNum >= maxPages) {
+                                console.log("Reached max pages");
+                                return Promise.resolve(results);
+                            }
+
+                            return sleep(delayMs).then(function() {
+                                var data = extractGeminiStorybookPage();
+
+                                console.log("Page " + (pageNum + 1) + ": " + data.textLength + " chars, image: " + (data.imageUrl ? "YES" : "NO"));
+
+                                // Check for duplicates
+                                if (lastText && data.text === lastText) {
+                                    consecutiveDupes++;
+                                    console.log("Duplicate detected (" + consecutiveDupes + ")");
+                                    if (consecutiveDupes >= 3) {
+                                        console.log("Stuck on same content, stopping");
+                                        return Promise.resolve(results);
+                                    }
+                                } else {
+                                    consecutiveDupes = 0;
+                                    results.push({
+                                        text: data.text,
+                                        imageUrl: data.imageUrl
+                                    });
+                                    lastText = data.text;
+                                }
+
+                                // Check next button
+                                var next = nextBtn();
+                                if (!next || next.disabled) {
+                                    console.log("Reached end of book");
+                                    return Promise.resolve(results);
+                                }
+
+                                // Click next and continue
+                                next.click();
+                                return extractPage(pageNum + 1, lastText, consecutiveDupes);
+                            });
+                        }
+
+                        // Start the extraction chain
+                        return rewindToStart()
+                            .then(function() {
+                                return extractPage(0, null, 0);
+                            })
+                            .then(function(finalResults) {
+                                console.log("Extraction complete: " + finalResults.length + " scenes");
+
+                                var story = {
+                                    title: "Untitled Story",
+                                    author: "Unknown",
+                                    scenes: finalResults
+                                };
+
+                                if (window.javaApp && window.javaApp.processStory) {
+                                    console.log("Sending story to Java...");
+                                    window.javaApp.processStory(JSON.stringify(story));
+                                } else {
+                                    console.error("Java bridge not available!");
+                                }
+
+                                return story;
+                            });
+                    }
+
+                    // Start extraction
+                    extractAllPages().catch(function(err) {
+                        console.error("Extraction failed: " + err);
+                        if (window.javaApp && window.javaApp.processStory) {
+                            window.javaApp.processStory(JSON.stringify({
+                                title: "Error",
+                                author: "System",
+                                scenes: []
+                            }));
+                        }
+                    });
+
+                })();
                 """;
     }
 
