@@ -75,3 +75,4 @@ embedded-db/
 # Application data
 *.lic
 /target/
+run.bat

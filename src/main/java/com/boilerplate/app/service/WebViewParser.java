@@ -33,6 +33,7 @@ public class WebViewParser {
 
     private static final Logger logger = LogManager.getLogger(WebViewParser.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ExecutorService backgroundExecutor = Executors.newCachedThreadPool();
 
     // === STATE MANAGEMENT (Prevents duplicate extractions) ===
     private volatile boolean isExtracting = false;
@@ -178,169 +179,19 @@ public class WebViewParser {
 
     /**
      * Builds the complete JavaScript extraction script.
-     * Separated for readability and maintainability.
+     * Loads from external resource file for maintainability.
      */
     private String buildExtractionScript() {
-        return """
-                (function() {
-                    // Redirect console to Java
-                    var oldLog = console.log;
-                    var oldErr = console.error;
-                    console.log = function(msg) {
-                        if (oldLog) oldLog(msg);
-                        if(window.javaApp && window.javaApp.log) window.javaApp.log("INFO: " + msg);
-                    };
-                    console.error = function(msg) {
-                        if (oldErr) oldErr(msg);
-                        if(window.javaApp && window.javaApp.log) window.javaApp.log("ERROR: " + msg);
-                    };
-
-                    console.log("=== Gemini Storybook Extractor v3.0 (Automated) ===");
-
-                    // ========== CORE EXTRACTION FUNCTION ==========
-                    function extractGeminiStorybookPage() {
-                        var visiblePages = Array.from(document.querySelectorAll('storybook-page')).filter(function(el) {
-                            var style = window.getComputedStyle(el);
-                            var rect = el.getBoundingClientRect();
-                            return style.visibility === 'visible' &&
-                                   rect.width > 0 &&
-                                   rect.right > 0 &&
-                                   rect.left < window.innerWidth;
-                        });
-
-                        // KEY: Use LAST visible element (current page is rendered last in DOM)
-                        var activePage = visiblePages.length > 0 ? visiblePages[visiblePages.length - 1] : null;
-
-                        if (!activePage) {
-                            return { text: "", imageUrl: null, error: "No active page found" };
-                        }
-
-                        var textEl = activePage.querySelector('div.story-text-container');
-                        var text = textEl ? textEl.textContent.trim() : "";
-
-                        var imgEl = activePage.querySelector('img[src*="googleusercontent"]') ||
-                                    activePage.querySelector('.storybook-image img') ||
-                                    activePage.querySelector('img');
-                        var imageUrl = imgEl && imgEl.src && imgEl.src.startsWith("http") ? imgEl.src : null;
-
-                        return {
-                            text: text,
-                            imageUrl: imageUrl,
-                            textLength: text.length
-                        };
-                    }
-
-                    // ========== AUTOMATED EXTRACTION (NO ASYNC/AWAIT) ==========
-                    function extractAllPages() {
-                        var delayMs = 2000;
-                        var results = [];
-                        var sleep = function(ms) { return new Promise(function(r) { setTimeout(r, ms); }); };
-                        var nextBtn = function() { return document.querySelector('button[aria-label="Next page"]'); };
-                        var prevBtn = function() { return document.querySelector('button[aria-label="Previous page"]'); };
-
-                        console.log("Starting automated extraction...");
-
-                        // Jump to beginning using promises
-                        console.log("Rewinding to start...");
-
-                        function rewindToStart() {
-                            var rewindCount = 0;
-                            function doRewind() {
-                                if (rewindCount >= 50 || !prevBtn() || prevBtn().disabled) {
-                                    return sleep(delayMs).then(function() {
-                                        console.log("Rewind complete");
-                                    });
-                                }
-                                prevBtn().click();
-                                rewindCount++;
-                                return sleep(200).then(doRewind);
-                            }
-                            return doRewind();
-                        }
-
-                        // Extract pages recursively using promises
-                        function extractPage(pageNum, lastText, consecutiveDupes) {
-                            var maxPages = 50;
-
-                            if (pageNum >= maxPages) {
-                                console.log("Reached max pages");
-                                return Promise.resolve(results);
-                            }
-
-                            return sleep(delayMs).then(function() {
-                                var data = extractGeminiStorybookPage();
-
-                                console.log("Page " + (pageNum + 1) + ": " + data.textLength + " chars, image: " + (data.imageUrl ? "YES" : "NO"));
-
-                                // Check for duplicates
-                                if (lastText && data.text === lastText) {
-                                    consecutiveDupes++;
-                                    console.log("Duplicate detected (" + consecutiveDupes + ")");
-                                    if (consecutiveDupes >= 3) {
-                                        console.log("Stuck on same content, stopping");
-                                        return Promise.resolve(results);
-                                    }
-                                } else {
-                                    consecutiveDupes = 0;
-                                    results.push({
-                                        text: data.text,
-                                        imageUrl: data.imageUrl
-                                    });
-                                    lastText = data.text;
-                                }
-
-                                // Check next button
-                                var next = nextBtn();
-                                if (!next || next.disabled) {
-                                    console.log("Reached end of book");
-                                    return Promise.resolve(results);
-                                }
-
-                                // Click next and continue
-                                next.click();
-                                return extractPage(pageNum + 1, lastText, consecutiveDupes);
-                            });
-                        }
-
-                        // Start the extraction chain
-                        return rewindToStart()
-                            .then(function() {
-                                return extractPage(0, null, 0);
-                            })
-                            .then(function(finalResults) {
-                                console.log("Extraction complete: " + finalResults.length + " scenes");
-
-                                var story = {
-                                    title: "Untitled Story",
-                                    author: "Unknown",
-                                    scenes: finalResults
-                                };
-
-                                if (window.javaApp && window.javaApp.processStory) {
-                                    console.log("Sending story to Java...");
-                                    window.javaApp.processStory(JSON.stringify(story));
-                                } else {
-                                    console.error("Java bridge not available!");
-                                }
-
-                                return story;
-                            });
-                    }
-
-                    // Start extraction
-                    extractAllPages().catch(function(err) {
-                        console.error("Extraction failed: " + err);
-                        if (window.javaApp && window.javaApp.processStory) {
-                            window.javaApp.processStory(JSON.stringify({
-                                title: "Error",
-                                author: "System",
-                                scenes: []
-                            }));
-                        }
-                    });
-
-                })();
-                """;
+        try (java.io.InputStream is = getClass().getResourceAsStream("/js/extraction.js")) {
+            if (is == null) {
+                logger.error("extraction.js not found in resources");
+                return "";
+            }
+            return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            logger.error("Failed to load extraction script", e);
+            return "";
+        }
     }
 
     /**
@@ -452,16 +303,16 @@ public class WebViewParser {
                 if (!scenesWithImages.isEmpty()) {
                     logger.info("Starting background download of {} images...", scenesWithImages.size());
 
-                    // Use a separate thread for the download coordinator
-                    new Thread(() -> {
-                        ExecutorService executor = Executors.newFixedThreadPool(
+                    // Use shared executor service instead of creating new threads
+                    backgroundExecutor.submit(() -> {
+                        ExecutorService downloadExecutor = Executors.newFixedThreadPool(
                                 Math.min(4, scenesWithImages.size()));
                         try {
                             AtomicInteger completedCount = new AtomicInteger(0);
                             int totalImages = scenesWithImages.size();
 
                             for (Scene scene : scenesWithImages) {
-                                executor.submit(() -> {
+                                downloadExecutor.submit(() -> {
                                     String cachedUrl = ImageCacheService.getInstance()
                                             .downloadAndCache(scene.getImageUrl());
                                     if (cachedUrl != null) {
@@ -472,8 +323,8 @@ public class WebViewParser {
                                 });
                             }
 
-                            executor.shutdown();
-                            executor.awaitTermination(5, TimeUnit.MINUTES);
+                            downloadExecutor.shutdown();
+                            downloadExecutor.awaitTermination(5, TimeUnit.MINUTES);
 
                             long successCount = finalStory.getScenes().stream()
                                     .filter(s -> s.getImageUrl() != null && s.getImageUrl().startsWith("file:"))
@@ -491,7 +342,7 @@ public class WebViewParser {
                         } catch (Exception e) {
                             logger.error("Error during background image download", e);
                         }
-                    }, "ImageDownloadThread").start();
+                    });
                 } else {
                     logger.info("No images to download");
                 }

@@ -483,19 +483,35 @@ public class MainController {
                     "Please extract or load a story first.");
             return;
         }
-        updateStatus("Saving to database...");
-        runBackgroundTask(
-                () -> {
-                    storyService.saveStoryAsync(currentStory).join();
-                    return null;
-                },
-                (res) -> {
-                    updateStatus("✅ Saved: " + currentStory.getTitle());
-                    com.boilerplate.app.util.ErrorHandler.showInfo(
-                            "Story Saved",
-                            "Story '" + currentStory.getTitle() + "' has been saved successfully.");
-                },
-                "Error saving story");
+
+        javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                updateMessage("Saving story to database...");
+                storyService.saveStoryAsync(currentStory).join();
+                return null;
+            }
+        };
+
+        com.boilerplate.app.util.ProgressDialog.showProgress(
+                statusLabel.getScene().getWindow(),
+                "Saving Story",
+                "Saving story...",
+                saveTask);
+
+        if (saveTask.getException() != null) {
+            updateStatus("❌ Error saving story");
+            com.boilerplate.app.util.ErrorHandler.showError(
+                    "Save Failed",
+                    "Failed to save story",
+                    saveTask.getException().getMessage(),
+                    saveTask.getException());
+        } else if (saveTask.isDone()) { // Success
+            updateStatus("✅ Saved: " + currentStory.getTitle());
+            com.boilerplate.app.util.ErrorHandler.showInfo(
+                    "Story Saved",
+                    "Story '" + currentStory.getTitle() + "' has been saved successfully.");
+        }
     }
 
     @FXML
@@ -555,37 +571,50 @@ public class MainController {
 
         File file = fileChooser.showSaveDialog(statusLabel.getScene().getWindow());
         if (file != null) {
-            updateStatus("Starting PDF Generation Pipeline...");
+            javafx.concurrent.Task<Void> pdfTask = new javafx.concurrent.Task<>() {
+                @Override
+                protected Void call() throws Exception {
+                    updateMessage("Initializing PDF pipeline...");
 
-            pipelineService.clearSteps();
-            pipelineService.addStep(new com.boilerplate.app.pipeline.steps.PdfGenerationStep());
+                    pipelineService.clearSteps();
+                    pipelineService.addStep(new com.boilerplate.app.pipeline.steps.PdfGenerationStep());
 
-            com.boilerplate.app.pipeline.PipelineContext context = new com.boilerplate.app.pipeline.PipelineContext();
-            context.setStory(currentStory);
-            context.setTemplate(currentTemplate);
-            context.setOutputFile(file);
+                    com.boilerplate.app.pipeline.PipelineContext context = new com.boilerplate.app.pipeline.PipelineContext();
+                    context.setStory(currentStory);
+                    context.setTemplate(currentTemplate);
+                    context.setOutputFile(file);
 
-            pipelineService.execute(context)
-                    .thenAccept(ctx -> {
-                        Platform.runLater(() -> {
-                            updateStatus("✅ Saved PDF: " + file.getName());
-                            com.boilerplate.app.util.ErrorHandler.showInfo(
-                                    "PDF Generated",
-                                    "PDF successfully saved to:\n" + file.getAbsolutePath());
-                        });
-                    })
-                    .exceptionally(ex -> {
-                        Platform.runLater(() -> {
-                            Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-                            updateStatus("❌ PDF generation failed");
-                            com.boilerplate.app.util.ErrorHandler.showError(
-                                    "PDF Generation Failed",
-                                    "Failed to generate PDF",
-                                    cause.getMessage(),
-                                    cause);
-                        });
-                        return null;
-                    });
+                    updateMessage("Generating, please wait...");
+                    pipelineService.execute(context).join();
+                    return null;
+                }
+            };
+
+            com.boilerplate.app.util.ProgressDialog.showProgress(
+                    statusLabel.getScene().getWindow(),
+                    "Generating PDF",
+                    "Starting PDF generation...",
+                    pdfTask);
+
+            if (pdfTask.getException() != null) {
+                Throwable cause = pdfTask.getException();
+                // Unwrap CompletionException if present
+                if (cause instanceof java.util.concurrent.CompletionException) {
+                    cause = cause.getCause();
+                }
+
+                updateStatus("❌ PDF generation failed");
+                com.boilerplate.app.util.ErrorHandler.showError(
+                        "PDF Generation Failed",
+                        "Failed to generate PDF",
+                        cause.getMessage(),
+                        cause);
+            } else if (pdfTask.isDone()) {
+                updateStatus("✅ Saved PDF: " + file.getName());
+                com.boilerplate.app.util.ErrorHandler.showInfo(
+                        "PDF Generated",
+                        "PDF successfully saved to:\n" + file.getAbsolutePath());
+            }
         }
     }
 
@@ -607,9 +636,16 @@ public class MainController {
     }
 
     // Background helpers
+    private final java.util.concurrent.ExecutorService backgroundExecutor = java.util.concurrent.Executors
+            .newCachedThreadPool(r -> {
+                Thread t = new Thread(r);
+                t.setDaemon(true);
+                return t;
+            });
+
     public <T> void runBackgroundTask(MainController.CallableWithException<T> task,
             MainController.ConsumerWithException<T> onSuccess, String errorPrefix) {
-        new Thread(() -> {
+        backgroundExecutor.submit(() -> {
             try {
                 T result = task.call();
                 Platform.runLater(() -> {
@@ -622,18 +658,18 @@ public class MainController {
             } catch (Exception e) {
                 Platform.runLater(() -> showError(errorPrefix + ": " + e.getMessage()));
             }
-        }).start();
+        });
     }
 
     public void runBackgroundAction(MainController.RunnableWithException task, Runnable onSuccess, String errorPrefix) {
-        new Thread(() -> {
+        backgroundExecutor.submit(() -> {
             try {
                 task.run();
                 Platform.runLater(onSuccess);
             } catch (Exception e) {
                 Platform.runLater(() -> showError(errorPrefix + ": " + e.getMessage()));
             }
-        }).start();
+        });
     }
 
     @FunctionalInterface
